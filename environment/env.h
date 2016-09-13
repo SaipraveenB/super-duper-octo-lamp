@@ -8,37 +8,38 @@
 #include <vector>
 #include <tuple>
 
-#define ENV_H_GAMMA 0.95f
+#define SINGLEMDP_GAMMA 0.95f
 
 class SingleMDP {
 public:
-  void SetEnv(const std::vector<std::vector<float>> &rewards, std::pair<int,int> start_state, std::pair<int,int> end_state);
+  void SetEnv(const std::vector<std::vector<float>> &rewards, std::pair<int, int> start_state, std::pair<int, int> end_state);
+  std::tuple<std::pair<int, int>, float, bool> Step(int action);
   void Reset();
-  std::tuple<std::pair<int,int>, float, bool> Step(int action);
-  std::pair<int,int> GetEnvShape() {
+
+  std::pair<int, int> GetEnvShape() {
     return env_shape;
   }
   int GetNumActions() {
     return actions.size();
   }
-  std::pair<int,int> GetStartState() {
+  std::pair<int, int> GetStartState() {
     return start_state;
   }
   float GetGamma() {
-    return ENV_H_GAMMA;
+    return SINGLEMDP_GAMMA;
   }
 
 private:
-  std::pair<int,int> cur_state;
-  std::pair<int,int> end_state;
-  std::pair<int,int> start_state;
-  std::pair<int,int> env_shape;
+  std::pair<int, int> cur_state;
+  std::pair<int, int> end_state;
+  std::pair<int, int> start_state;
+  std::pair<int, int> env_shape;
   // Pointer to const reward matrix.
   std::vector<std::vector<float>> const *reward_matrix;
-  const std::vector<std::pair<int,int>> actions = {std::make_pair(-1,0), std::make_pair(1,0), std::make_pair(0,1), std::make_pair(0,-1)};
+  const std::vector<std::pair<int, int>> actions = {std::make_pair(-1,0), std::make_pair(1,0), std::make_pair(0,1), std::make_pair(0,-1)};
 };
 
-void SingleMDP::SetEnv(const std::vector<std::vector<float>> &rewards, std::pair<int,int> start_state, std::pair<int,int> end_state) {
+void SingleMDP::SetEnv(const std::vector<std::vector<float>> &rewards, std::pair<int, int> start_state, std::pair<int, int> end_state) {
   reward_matrix = &rewards;
   start_state = start_state;
   end_state = end_state;
@@ -46,11 +47,7 @@ void SingleMDP::SetEnv(const std::vector<std::vector<float>> &rewards, std::pair
   env_shape = std::make_pair(rewards.size(), rewards[0].size());
 }
 
-void SingleMDP::Reset() {
-  this->cur_state = this->start_state;
-}
-
-std::tuple<std::pair<int,int>, float, bool> SingleMDP::Step(int action) {
+std::tuple<std::pair<int, int>, float, bool> SingleMDP::Step(int action) {
   // Compute new state.
   int new_y = cur_state.first + actions[action].first;
   int new_x = cur_state.second + actions[action].second;
@@ -59,10 +56,14 @@ std::tuple<std::pair<int,int>, float, bool> SingleMDP::Step(int action) {
   this->cur_state = std::make_pair(new_y, new_x);
 
   // Compute reward signal.
-  // Currently using only one component.
-  // NOTE :: Can engineer and add a visibility matrix.
+  // NOTE :: Can engineer and add a visibility matrix-based pseudo reward signal.
   float reward = (*this->reward_matrix)[new_y][new_x];
 
   return std::make_tuple(this->cur_state, reward, (this->cur_state == this->end_state));
 }
+
+void SingleMDP::Reset() {
+  this->cur_state = this->start_state;
+}
+
 #endif //SUPER_DUPER_OCTO_LAMP_ENV_H
