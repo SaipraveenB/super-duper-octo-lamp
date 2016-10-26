@@ -10,5 +10,5 @@
     <ConfirmationsSetting value="0" id="Add" />
     <ConfirmationsSetting value="0" id="Remove" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 2.7.10 (/usr/local/bin/python2.7)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 2.7.3 (ssh://sauce@10.6.15.118:22/home/sauce/virtualenv-15.0.3/theano-env/bin/python)" project-jdk-type="Python SDK" />
 </project>
