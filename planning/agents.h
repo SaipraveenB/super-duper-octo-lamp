@@ -5,10 +5,12 @@
 #ifndef SUPER_DUPER_OCTO_LAMP_AGENTS_H
 #define SUPER_DUPER_OCTO_LAMP_AGENTS_H
 
+#include "environment/env.h"
+
 #include <algorithm>
 #include <numeric>
 #include <random>
-#include "environment/env.h"
+#include <vector>
 
 #define Q_AGENT_ALPHA 0.05f
 
@@ -22,18 +24,14 @@ namespace {
     // Compute sum of values
     sum_values = std::accumulate(values.begin(), values.end(), 0.0f);
 
-    // Normalize the vector
-    for(auto& val : values)
-      val /= sum_values;
-
-    // Find cumsum of vector
+    // Normalize the vector; Find cumulative sum of probs.
     float cumsum = 0.0f;
     for(auto& val : values) {
-      cumsum += val;
+      cumsum += (val/sum_values);
       val = cumsum;
     }
 
-    // Init once
+    // Init RNGs once
     {
       static std::random_device rand_dev;
       static std::mt19937 generator(rand_dev());
@@ -45,18 +43,18 @@ namespace {
 
     // Find matching index.
     int idx = 0;
-    for(const auto val : values) {
+    for(const float val : values) {
       if(val >= chooser)
         return idx;
 
       idx++;
     }
 
-    // If everything fails, return last action.
-    return (values.size() - 1);
+    // If everything fails (for some random reason), return 'last' action by default.
+    return (idx - 1);
   }
 
-  // Greedy Selection
+  // Greedy Selection (if needed)
   int GreedySelection(std::vector<float> values) {
     return (std::max_element(values.begin(),values.end()) - values.begin());
   }
@@ -69,16 +67,18 @@ public:
   virtual void Init(const Env& env) = 0;
 
   // Step function.
-  virtual ActionType Step(const StateType& prev_state, const float reward) = 0;
+  virtual ActionType Step(const StateType& new_state, const float reward) = 0;
 };
 
-class QAgent : public Agent<std::pair<int,int>,std::pair<int,bool>> {
+// Q Agent for state type = std::pair<int, int> and action type = int
+class QAgent : public Agent<std::pair<int, int>, int> {
 public:
   // Init function.
   void Init(const SingleMDP& env);
 
-  // Step function; Returns num_steps taken if prev_state = <-1,-1>
-  int Step(const std::pair<int,int>& new_state, const float reward);
+  // Step function.
+  // NOTE :: If prev_state=<-1,-1> or prev_action = -1, doesn't perform Q-update.
+  int Step(const std::pair<int, int>& new_state, const float reward);
 
   // Reset agent to start state, preserve value functions.
   void SoftReset();
@@ -90,50 +90,55 @@ private:
   int num_steps;
   float gamma;
   std::vector<std::vector<std::vector<float>>> q_values;
-  std::pair<int,int> prev_state;
+  std::pair<int, int> prev_state;
   int prev_action;
 };
 
 void QAgent::Init(const SingleMDP& env) {
   const auto env_shape = env.GetEnvShape();
   const int num_actions = env.GetNumActions();
-  this->q_values = std::vector<std::vector<std::vector<float>>>(env_shape.first,std::vector<std::vector<float>>(env_shape.second,std::vector<float>(num_actions,0.0f)));
+  this->q_values = std::vector<std::vector<std::vector<float>>>(env_shape.first, std::vector<std::vector<float>>(env_shape.second, std::vector<float>(num_actions, 0.0f)));
   this->gamma = env.GetGamma();
 
   this->prev_state = std::make_pair(-1,-1);
   this->prev_action = -1;
 }
 
-int QAgent::Step(const std::pair<int,int>& new_state, const float reward) {
+int QAgent::Step(const std::pair<int, int>& new_state, const float reward) {
   if(new_state.first == new_state.second == -1){
     return this->num_steps;
   }
-  // If not starting action
+  // When action != first action.
   if(prev_action != -1) {
-    // Perform Q update first.
+    // Perform Q update.
     const auto& req_q_values = q_values[new_state.first][new_state.second];
-    float target = reward + this->gamma * (*std::max_element(req_q_values.begin(),req_q_values.end()));
-    float Td_error = (target - q_values[prev_state.first][prev_state.second][prev_action]);
-    q_values[prev_state.first][prev_state.second][prev_action] += Q_AGENT_ALPHA*Td_error;
+    const float target = reward + this->gamma * (*std::max_element(req_q_values.begin(), req_q_values.end()));
+    const float td_error = (target - q_values[prev_state.first][prev_state.second][prev_action]);
+    q_values[prev_state.first][prev_state.second][prev_action] += Q_AGENT_ALPHA * td_error;
   }
 
-  // Softmax selection over Q-values
+  // Softmax selection using current Q-values.
   prev_state = new_state;
   prev_action = SoftmaxSelection(q_values[new_state.first][new_state.second]);
   return prev_action;
 }
 
 void QAgent::SoftReset() {
+  // Clear state, action.
   this->prev_state = make_pair(-1,-1);
   this->prev_action = -1;
 }
 
 void QAgent::HardReset() {
+  // Clear Q-values.
   for(auto& row : q_values)
     for(auto& col : row)
       for(auto& action : col)
         action = 0.0f;
+
+  // Clear state, action.
   this->prev_state = make_pair(-1,-1);
   this->prev_action = -1;
 }
+
 #endif //SUPER_DUPER_OCTO_LAMP_AGENTS_H
