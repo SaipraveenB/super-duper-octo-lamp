@@ -8,6 +8,8 @@ def outer_product(visible_final, hidden_final):
 def outer_add( visible, hidden ):
     return np.tensordot(visible, np.ones(hidden.shape), 0) + hidden;
 
+EPSILON = 0.0001;
+
 class TensorGRBM:
 
     def __init__(self, visible_shape, hidden_shape, k ):
@@ -102,6 +104,9 @@ class TensorGRBM:
         partial = partial * mask + (1 - mask) * self.v_bias;
         energies = - np.tensordot(partial, self.w, len(self.visible_shape)) - self.h_bias;
         probabilities = 1 / (1 + np.exp(energies));
+
+
+        np.clip( probabilities, EPSILON, 1 );
         entropies_old = probabilities * np.log2(probabilities) + (1 - probabilities) * np.log2(1 - probabilities);
         #oadd = np.transpose( self.w, [len(self.w.shape) - 1] + range(0,len(self.w.shape)-1) ) * self.v_bias;
         #oadd = np.transpose( oadd, range(1,len(self.w.shape)) + [0] ) + energies;

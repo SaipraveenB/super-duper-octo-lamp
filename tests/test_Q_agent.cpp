@@ -39,7 +39,7 @@ std::vector<std::pair<int,float>> QAgentExperiment::RunSingleExperiment(const in
       num_steps++;
 
       // Send values to agent for next action, CONDITIONALLY.
-      if(!std::get<2>(new_state) {
+      if(!std::get<2>(new_state) ) {
         action = agent.Step(std::get<0>(new_state));
       }
       else

@@ -104,11 +104,11 @@ std::vector<float> GetActionValueEstimate(const std::vector<std::vector<float>>&
         // Weight for pseudo rewards.
         const float pseudo_reward_multiplier = 1.0;
         // Env-specific rewards.
-        const std::vector<std::vector<float>>& rewards;
+        const std::vector<std::vector<float> >& rewards;
         // Portion of the map that is seen by the agent.
-        std::vector<std::vector<bool>> seen;
+        std::vector<std::vector<bool> > seen;
         // All 4 possible visibility kernels.
-        std::vector<std::vector<std::vector<bool>>> vis_kernels;
+        std::vector< std::vector< std::vector<bool> > > vis_kernels;
         // Kernel Shape(H x W).
         std::pair<int,int> kern_shape;
         // Environment Shape(H x W).
@@ -126,7 +126,7 @@ std::vector<float> GetActionValueEstimate(const std::vector<std::vector<float>>&
                     const std::pair<int,int> kern_shape) {
             rewards = rewards;
             env_shape = std::make_pair(rewards.size(), rewards[0].size());
-            seen = std::vector<std::vector<bool>>(env_shape.first,std::vector<bool>(env_shape.second,false));
+            seen = std::vector<std::vector<bool> >(env_shape.first,std::vector<bool>(env_shape.second,false));
             vis_kernels = {GetKernel(NORTH,kern_shape),GetKernel(SOUTH,kern_shape),
                            GetKernel(EAST,kern_shape),GetKernel(WEST,kern_shape)};
             kern_shape = kern_shape;
@@ -231,6 +231,14 @@ std::vector<float> GetActionValueEstimate(const std::vector<std::vector<float>>&
 #pragma omp atomic
             q_values[old_state.first][old_state.second] += alpha * TD_error;
         }
+    }
+    for( int action = 0; action < 8; action ++ ) {
+      for (auto row : q_values) {
+        for (auto cell : row) {
+          printf("%5.3f\t", cell);
+        }
+        printf("\n");
+      }
     }
     return q_values[start_state.first][start_state.second];
 }
