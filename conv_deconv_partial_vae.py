@@ -27,7 +27,7 @@ from skimage.transform import resize
 
 import planning.planner;
 import planning.iterator;
-from agents import Agent
+from agents import Agent, MultiAgent
 from environment.alternator_world import AlternatorWorld
 
 from environment.color_world import ColorWorld
@@ -638,15 +638,16 @@ class GaussianRBM:
                     mu_samples = self.v_given_h(C);
                     mu_map = self.map_v_given_h(C);
                     mu_map_map = self.map_v_given_h(C_map);
+
                     plt.figure();
                     plt.scatter(trX.transpose()[0], trX.transpose()[1], alpha=0.1, s=15, c='b');
                     plt.scatter(mu_samples.transpose()[0], mu_samples.transpose()[1], alpha=0.1, s=15, c='g');
                     plt.scatter(mu_map.transpose()[0], mu_map.transpose()[1], alpha=0.1, s=15, c='r');
                     #plt.show();
+
                     plt.savefig(os.path.join(self.vis_target, "grbm_vis_" + (5-len(str(iter_num))) * "0" + str(iter_num) + ".png") );
 
                 cost = self._fit_function(xmb);
-
                 #Uncomment for the debug version.
                 #cost, a, b, c, d, e, f, g = self._fit_function_dbg(xmb);
 
@@ -654,18 +655,19 @@ class GaussianRBM:
                 n += xmb.shape[0]
 
             print("Train iter", e)
-            print("Cost", cost);
-            print("Average Cost", np.mean(self.costs_));
+            print("Cost", cost)
+            print("Average Cost", np.mean(self.costs_))
             print("Total iters run", self.epoch_)
             print("Time", n / (time() - t))
             self.epoch_ += 1
 
-        # Contruct video.
+        # Construct video.
         if video and plot:
             make_animation_animgif(os.path.join(self.vis_target,"grbm_vis_"),os.path.join(self.vis_target,"grbm_vis"));
 
+
 class ConvVAE(PickleMixin):
-    def __init__(self, image_save_root=None, snapshot_file="snapshot.pkl"):
+    def __init__(self, image_save_root=None, snapshot_file="snapshot.pkl", force_recompile=False, rc_streams=3):
         self.srng = RandomStreams()
         self.n_code = 2
         self.n_hidden = 64
@@ -679,6 +681,9 @@ class ConvVAE(PickleMixin):
             f = open(self.snapshot_file, 'rb')
             classifier = cPickle.load(f)
             self.__setstate__(classifier.__dict__)
+            if force_recompile:
+                self._setup_functions(np.zeros((1,rc_streams)), np.zeros(1));
+
             f.close()
 
     def _setup_functions(self, trX, trM):
@@ -733,7 +738,10 @@ class ConvVAE(PickleMixin):
 
         #rec_cost = T.sum(T.abs(X - y))
 
-        e_jacobian = T.jacobian( code_mu.flatten(), X );
+        #e_jacobian = T.jacobian( code_mu.flatten(), X );
+        full_jacobians, updates1 = theano.scan(lambda i, code_mu,X : T.jacobian(code_mu[i], X, disconnected_inputs='ignore'), sequences=T.arange(code_mu.shape[0]), non_sequences=[code_mu,X]);
+        full_jacobians = full_jacobians.dimshuffle([0,2,1,3,4,5]);
+        full_jacobian, updates2 = theano.scan(lambda i, full_jacobians : full_jacobians[i][i], sequences=T.arange(code_mu.shape[0]), non_sequences=[full_jacobians])
 
         # Element-wise multiply by the mask to prevent error propagation from unobserved variables.
         rec_cost = T.sum(T.sqr( (( X - y )/(0.6)) * M )) # / T.cast(X.shape[0], 'float32')
@@ -753,7 +761,7 @@ class ConvVAE(PickleMixin):
         self._reconstruct = theano.function([X, e], y)
         self._x_given_z = theano.function([Z_in], y_out)
         self._z_given_x = theano.function([X], (code_mu, code_log_sigma))
-        self._encoder_jacobian = theano.function([X], e_jacobian)
+        self._encoder_jacobian = theano.function([X], full_jacobian, updates=updates1 + updates2)
 
     def _conv_gaussian_enc(self, X, w, w2, w3, b3, wmu, bmu, wsigma, bsigma):
         h = conv_and_pool(X, w)
@@ -964,7 +972,7 @@ class VFuncSampler:
         dz_dx = self.tf.encoder_jacobian( image + 0.001 );
         dz_dx = np.reshape( np.transpose( dz_dx, [0, 1, 3, 4, 2]), [2, 28, 28, 3] );
         # 1x2
-        de_dz = self.grbm.total_energy_gradient(np.ones((1, 2)) * 0.001);
+        de_dz = self.grbm.total_energy_gradient( inpZ + 0.001 );
         de_dx = np.sum( np.abs(np.tensordot(dz_dx, de_dz, axes=[0, 1])), axis=2);
 
         pseudo_rewards = (self.alpha * de_dx).reshape([28,28]);
@@ -990,6 +998,55 @@ class VFuncSampler:
             vfunc = self.vi.iterate(pix, pseudo_rewards);
             vfunc = np.reshape(vfunc, [1, 1, 30, 30]);
             vfunc_total += vfunc;
+
+        return vfunc_total/num_samples;
+
+    def solve(self, image, num_samples):
+        # Nx2
+        inpZ = self.tf.encode(image)[0];
+
+        # Nx2x3x28x28 jacobian
+        dz_dx = self.tf.encoder_jacobian( image + 0.001 );
+        # Nx2x28x28x3
+        dz_dx = np.transpose( dz_dx, [0, 1, 3, 4, 2])
+        # Nx2
+        de_dz = self.grbm.total_energy_gradient(inpZ + 0.001);
+        # Nx28x28
+        #de_dx = np.sum( np.abs(np.tensordot(dz_dx, de_dz, axes=[0, 1])), axis=2);
+        de_dx = np.sum( np.sum( de_dz.reshape([ de_dz.shape[0],de_dz.shape[1],1,1,1 ]) * dz_dx, axis=2), axis=4 );
+
+        # Nx28x28
+        pseudo_rewards = self.alpha * de_dx;
+
+        # Sample a H and V.
+        # SNx1
+        sampleH = self.grbm.h_given_v(np.tile(inpZ,[num_samples,1]))
+        # SNx2
+        sampleV = self.grbm.v_given_h(sampleH)
+        # SNx3x28x28
+        sampleX = self.tf.decode(sampleV)
+
+        """
+        if plot:
+            plt.figure();
+            plt.scatter(sampleV.transpose()[0], sampleV.transpose()[1], alpha=0.1, s=15, c='b');
+            plt.scatter(inpZ.transpose()[0], inpZ.transpose()[1], alpha=0.5, s=35, c='k');
+            plt.savefig( os.path.join( target_dir, "sampler_Zs_"+suffix+".png") );
+
+            samples = color_grid_vis( sampleX.transpose([0,2,3,1]), show=False );
+            imsave( os.path.join( target_dir,"sampler_Xs_" + suffix + ".png" ), samples );
+        """
+        # Nx1x30x30
+        vfunc_total = np.ones([image.shape[0],1,30,30]);
+        # Nx28x28x3 form SxNx28x28x3
+        for sample in sampleX.reshape([num_samples, image.shape[0], 28, 28, 3 ]):
+
+            for i in range(0,sample.shape[0]):
+                # Take the first X value.
+                pix = sample[i].transpose([1, 2, 0]);
+                vfunc = self.vi.iterate(pix, pseudo_rewards[i]);
+                vfunc = np.reshape(vfunc, [1, 30, 30]);
+                vfunc_total[i] += vfunc;
 
         return vfunc_total/num_samples;
 
@@ -1080,7 +1137,7 @@ def do_value_iteration():
 def run_agent():
 
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl", force_recompile=True)
 
     mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_11-mu.pkl"));
     # print(mu.shape);
@@ -1101,7 +1158,9 @@ def run_agent():
     vfs_0 = VFuncSampler(tf, grbm, 0);
 
     env = AlternatorWorld(28,28,(3,3));
-    a = Agent( tf, grbm, vfs_1, env );
+
+    # Run X agents at once. Helps optimize tensorflow operations.
+    a = MultiAgent( tf, grbm, vfs_1, num_agents=10 );
 
     image, mask = a.run_episode( max_steps=200 );
 
