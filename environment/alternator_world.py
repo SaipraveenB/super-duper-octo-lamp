@@ -6,11 +6,33 @@
 # Rewards = Good end = +1, Bad end = -1
 #
 import random
-from scipy.misc import imsave, imread
+from scipy.misc import imsave
 import numpy
+from matplotlib import pyplot
 
 # Visibility kernel - can not see corners
 from environment.color_world import ColorWorld
+
+
+def color_grid_vis(X, show=True, save=False, transform=False):
+    ngrid = int(numpy.ceil(numpy.sqrt(len(X))))
+    npxs = numpy.sqrt(X[0].size / 3)
+    img = numpy.zeros((npxs * ngrid + ngrid - 1,
+                       npxs * ngrid + ngrid - 1, 3))
+
+    for i, x in enumerate(X):
+        j = i % ngrid
+        i = i / ngrid
+        if transform:
+            x = transform(x)
+        img[i * npxs + i:(i * npxs) + npxs + i, j * npxs + j:(j * npxs) + npxs + j] = x
+
+        # if show:
+        #   pyplot.imshow(img, interpolation='nearest')
+    #    pyplot.show()
+    # if save:
+    # imsave(save, img)
+    return img
 
 
 def get_kernel(dims):
@@ -38,6 +60,10 @@ def get_random_env(w, h):
         rewards[0, w - 1] = 1
 
     return grid_world, rewards
+
+
+def get_big_fig(size, pixel_vals):
+    return numpy.zeros((size, size, 3)) + pixel_vals
 
 
 # kh, kw = both odd
@@ -74,6 +100,8 @@ class AlternatorWorld:
         self.WEST = 3
         self.actions = numpy.asarray([(-1, 0), (1, 0), (0, 1), (0, -1)])
 
+        # Upscaling images
+        self.upscale_factor = 40
         return
 
     # Modify this
@@ -143,5 +171,11 @@ class AlternatorWorld:
         seen_pts[self.cur_pos[0], self.cur_pos[1]] = True
         total_seen = numpy.multiply(seen_pts.astype(float).reshape(seen_pts.shape + (1,)),
                                     (self.inner_grid + 0.2) / 1.2)
-        total_seen[self.cur_pos[0], self.cur_pos[1]] = (0.2, 0.9, 0.2)
-        imsave(path, total_seen)
+        total_seen[self.cur_pos[0], self.cur_pos[1]] = (1, 1, 1)
+        new_images = numpy.zeros((self.h * self.w, self.upscale_factor, self.upscale_factor, 3))
+        for i in range(self.h):
+            for j in range(self.w):
+                new_images[i * self.w + j] = get_big_fig(self.upscale_factor, total_seen[i, j])
+
+        new_img = color_grid_vis(new_images)
+        imsave(path, new_img)
