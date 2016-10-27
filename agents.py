@@ -51,7 +51,7 @@ class Agent:
                 action = np.random.randint(0, 3);
 
             has_ended, mask, image, rewards = self.env.step(action);
-            self.env.dump_seen(os.path.join(self.img_base, self.img_base + "0" * (5 - len(str(k))) + str(k) + ".png"))
+            self.env.dump_seen(os.path.join(self.img_dir, self.img_base + "0" * (5 - len(str(k))) + str(k) + ".png"))
 
             print("Now at:", self.env.cur_pos);
 
