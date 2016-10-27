@@ -27,6 +27,7 @@ from skimage.transform import resize
 
 import planning.planner;
 
+from environment.color_world import ColorWorld
 from environment.l_world import LWorld2,LWorld
 
 
@@ -143,12 +144,14 @@ def color_grid_vis(X, show=True, save=False, transform=False):
     npxs = np.sqrt(X[0].size/3)
     img = np.zeros((npxs * ngrid + ngrid - 1,
                     npxs * ngrid + ngrid - 1, 3))
+
     for i, x in enumerate(X):
         j = i % ngrid
         i = i / ngrid
         if transform:
             x = transform(x)
         img[i*npxs+i:(i*npxs)+npxs+i, j*npxs+j:(j*npxs)+npxs+j] = x
+
     if show:
         plt.imshow(img, interpolation='nearest')
         plt.show()
@@ -477,7 +480,7 @@ class GaussianRBM:
     def __init__(self, vis_target, lr_a, lr_b, lr_w, sigma ):
         self.srng = RandomStreams()
         #self.n_code = 512
-        self.n_hidden = 1
+        self.n_hidden = 4
         self.n_batch = 128
         self.costs_ = []
         self.epoch_ = 0
@@ -720,7 +723,7 @@ class ConvVAE(PickleMixin):
         e_jacobian = T.jacobian( code_mu.flatten(), X );
 
         # Element-wise multiply by the mask to prevent error propagation from unobserved variables.
-        rec_cost = T.sum(T.sqr( ( X - y ) * M )) # / T.cast(X.shape[0], 'float32')
+        rec_cost = T.sum(T.sqr( (( X - y )/(0.2)) * M )) # / T.cast(X.shape[0], 'float32')
 
         prior_cost = log_prior(code_mu, code_log_sigma)
 
@@ -894,11 +897,13 @@ class MDPDeducer:
         pass;
 
     def deduce_r(self, pixels):
-        is_r = np.exp( np.sum( (pixels - (1,0,0)) * (pixels-(1,0,0)), axis=2 ) );
-        is_b = np.exp( np.sum( (pixels - (0,0,1)) * (pixels-(0,0,1)), axis=2 ));
-
+        is_r = np.exp( -np.sum( (pixels - (1,0,0)) * (pixels-(1,0,0)), axis=2 ) );
+        is_b = np.exp( -np.sum( (pixels - (0,0,1)) * (pixels-(0,0,1)), axis=2 ) );
         return is_r * (-1) + is_b * (+1);
 
+    def deduce_p(self, pixels):
+        kernel = [[(0,1,0),(0,0,0),(0,0,0)], [(0,0,0),(1,0,0),(0,0,0)], [(0,0,0),(0,0,1),(0,0,0)], [(0,0,0),(0,0,0),(0,1,0)]];
+        return np.tile( kernel, list(kernel.shape) + [1,1]);
 
 
 def flatten_p( parr ):
@@ -949,10 +954,11 @@ if __name__ == "__main__":
 
     # Make our own dataset out of fields..
     #lworld = LWorld();
-    lwor2 = LWorld(28, 28);
+    lwor2 = ColorWorld(28, 28);
 
     # ldata = np.array((100,1,28,28));
     # Put 100 units.
+    """
     ldata = [];
     mdata = [];
     for i in range(100):
@@ -962,11 +968,14 @@ if __name__ == "__main__":
 
     ldata = np.array( ldata );
     mdata = np.array( mdata );
-    ldata = ldata.reshape((100, 1, 28, 28));
-    mdata = mdata.reshape((100, 1, 28, 28));
+
+    color_grid_vis( ldata, show=True );
+
+    ldata = ldata.transpose([0,3,1,2]);
+    mdata = mdata.transpose([0,3,1,2]);
 
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_8.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl")
 
     trX = floatX(ldata)
     trM = floatX(mdata)
@@ -976,17 +985,17 @@ if __name__ == "__main__":
 
     """
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_7.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl")
 
 
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_7-mu.pkl"));
+    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_11-mu.pkl"));
     #print(mu.shape);
     #print(mu.transpose()[0]);
 
     grbm = GaussianRBM("/Users/saipraveenb/cseiitm",0.004,0.004,0.004,0.1);
 
 
-    # grbm.fit(mu);
+    grbm.fit(mu);
     # Get hidden node samples.
     C = grbm.h_given_v(mu);
     C_map = grbm.map_h_given_v(mu);
@@ -1004,21 +1013,22 @@ if __name__ == "__main__":
     X_actual = tf.decode(mu);
 
 
-    k = tf.encoder_jacobian( np.ones((1,1,28,28)) * 0.001 );
+    k = tf.encoder_jacobian( np.ones((1,3,28,28)) * 0.001 );
 
     norm_k = (k-np.min(k))/(np.max(k)-np.min(k));
-    bw_grid_vis(k,show=True);
+    k = np.reshape( np.transpose( k, [0,1,3,4,2]), [2,28,28,3]);
+    jacobian_image = color_grid_vis(k,show=False);
 
 
     # Make image
-    X_s_images =    bw_grid_vis(X_samples, show=False);
-    X_m_images =    bw_grid_vis(X_map,     show=False);
-    X_m_m_images =  bw_grid_vis(X_map_map, show=False);
-    X_a_images  =   bw_grid_vis(X_actual,  show=False);
+    X_s_images =    color_grid_vis(X_samples.transpose([0,2,3,1]), show=False);
+    X_m_images =   color_grid_vis(X_map.transpose([0,2,3,1]),     show=False);
+    X_m_m_images =  color_grid_vis(X_map_map.transpose([0,2,3,1]), show=False);
+    X_a_images  =   color_grid_vis(X_actual.transpose([0,2,3,1]),  show=False);
     # Image manifold.
     manifold_Z = [(x,y) for x in np.linspace(-0.2,1.2,10) for y in np.linspace(1.2,-0.2,10)];
     X_manifold = tf.decode(manifold_Z);
-    X_manifold_images = bw_grid_vis(X_manifold, show=False);
+    X_manifold_images = color_grid_vis(X_manifold.transpose([0,2,3,1]), show=False);
 
     plt.scatter(mu.transpose()[0], mu.transpose()[1], alpha=0.1, s=15, c='b');
 
@@ -1026,10 +1036,12 @@ if __name__ == "__main__":
     plt.scatter(mu_map.transpose()[0], mu_map.transpose()[1], alpha=0.1, s=15, c='r');
     #plt.show();
 
+    run_number = 11;
     # Save
-    imsave("/Users/saipraveenb/cseiitm/rbm_resamples_6.png", X_s_images);
-    imsave("/Users/saipraveenb/cseiitm/rbm_map_6.png", X_m_images);
-    imsave("/Users/saipraveenb/cseiitm/rbm_map_map_6.png", X_m_images);
-    imsave("/Users/saipraveenb/cseiitm/actual_6.png", X_a_images);
-    imsave("/Users/saipraveenb/cseiitm/vae_manifold_6.png", X_manifold_images);
-    """
+    imsave("/Users/saipraveenb/cseiitm/rbm_resamples_"+format(run_number)+".png", X_s_images);
+    imsave("/Users/saipraveenb/cseiitm/rbm_map_"+format(run_number)+".png", X_m_images);
+    imsave("/Users/saipraveenb/cseiitm/rbm_map_map_"+format(run_number)+".png", X_m_images);
+    imsave("/Users/saipraveenb/cseiitm/actual_"+format(run_number)+".png", X_a_images);
+    imsave("/Users/saipraveenb/cseiitm/vae_manifold_"+format(run_number)+".png", X_manifold_images);
+    imsave("/Users/saipraveenb/cseiitm/jacobian_"+format(run_number)+".png", jacobian_image);
+
