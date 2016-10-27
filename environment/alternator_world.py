@@ -108,22 +108,32 @@ class AlternatorWorld:
         else:
             this_reward = self.rewards[new_pos[0], new_pos[1]]
 
+        # Update vis matrix
         seen_pixels = self.valid[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw]
         self.seen[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw] = numpy.logical_or(
             self.seen[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw],
             numpy.logical_and(seen_pixels, self.kernel))
-        new_vis = numpy.multiply(numpy.logical_and(seen_pixels, self.kernel).astype(float).reshape(self.kh, self.kw, 1),
-                                 self.grid[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw])
-        new_rew = numpy.multiply(numpy.logical_and(seen_pixels, self.kernel).astype(float),
-                                 self.rewards[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw])
 
         # Update cur pos
         self.cur_pos = new_pos
 
+        # Return vis matrix.
+        seen_pts = self.get_seen_mask()
+        total_seen = numpy.multiply(
+            self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w].astype(float).reshape(
+                (self.h, self.w, 1)), self.grid[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w])
+        new_rew = numpy.multiply(numpy.logical_and(seen_pixels, self.kernel).astype(float),
+                                 self.rewards[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw])
+
         # Set reward at the center
         new_rew[self.kh / 2, self.kw / 2] = this_reward
 
-        return new_vis, new_rew
+        return (this_reward == -1 or this_reward == +1), seen_pts, total_seen, new_rew
+
+    def get_seen_mat(self):
+        return numpy.multiply(
+            self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w].astype(float).reshape(
+                self.seen.shape + (1,)), self.grid[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w])
 
     def get_seen_mask(self):
         return self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w]

@@ -1,14 +1,16 @@
-
 #
 # 2D L-world generation here.
 #
 import random;
 import numpy as np;
 
-def paint( A, startX, offX, startY, offY, color ):
-    A[startX:startX+offX,startY:startY+offY] = color;
-class ColorWorld:
 
+def paint(A, rewards, startX, offX, startY, offY, color, reward):
+    A[startX:startX + offX, startY:startY + offY] = color;
+    rewards[startX:startX + offX, startY:startY + offY] = reward
+
+
+class ColorWorld:
     # Constructor.
     def __init__(self, w, h):
         self.w = w;
@@ -19,7 +21,8 @@ class ColorWorld:
     # Return an ndarray of 3 dimensions.( 3 colors. )
     def get_world(self):
         rand = random.random();
-        grid = np.zeros((self.w,self.h,3));
+        grid = np.zeros((self.w, self.h, 3));
+        rewards = np.zeros((self.w, self.h));
 
         if rand > 0.5:
             """
@@ -37,21 +40,21 @@ class ColorWorld:
 
             # left red.
             # grid[0][self.w-1] = (0, 0, 1);
-            paint(grid, 0, 4, self.w - 4, 4, (1, 0, 0));
+            paint(grid, rewards, 0, 4, self.w - 4, 4, (1, 0, 0), 1);
             # right blue.
             # grid[self.h - 1][0] = (1, 0, 0);
-            paint(grid, self.h - 4, 4, 0, 2, (0, 0, 1));
+            paint(grid, rewards, self.h - 4, 4, 0, 2, (0, 0, 1), -1);
             # Middle yellow.
-            paint(grid, self.h / 2, 4, self.w / 2, 4, (1, 1, 0));
+            paint(grid, rewards, self.h / 2, 4, self.w / 2, 4, (1, 1, 0), 0);
 
         if rand <= 0.5:
             # left blue.
-            #grid[0][self.w-1] = (0, 0, 1);
-            paint(grid, 0, 4, self.w - 4, 4, (0, 0, 1));
+            # grid[0][self.w-1] = (0, 0, 1);
+            paint(grid, rewards, 0, 4, self.w - 4, 4, (0, 0, 1), -1);
             # right red.
-            #grid[self.h - 1][0] = (1, 0, 0);
-            paint(grid, self.h-4, 4, 0, 4, (1,0,0) );
+            # grid[self.h - 1][0] = (1, 0, 0);
+            paint(grid, rewards, self.h - 4, 4, 0, 4, (1, 0, 0), 1);
             # Middle green.
-            paint(grid, self.h / 2, 4, self.w / 2, 4, (0, 1, 0));
+            paint(grid, rewards, self.h / 2, 4, self.w / 2, 4, (0, 1, 0), 0);
 
-        return np.transpose( grid, [0,1,2] );
+        return np.transpose(grid, [0, 1, 2]), rewards;
