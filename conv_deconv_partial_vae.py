@@ -513,7 +513,7 @@ class GaussianRBM:
             self.params = [w,a,b];
 
 
-        V = T.matrix('V',dtype='float64');
+        V = T.matrix('V',dtype=theano.config.floatX);
         H = self._h_from_v(V);
         vv = theano.printing.Print('V: ')(V);
         vh = theano.printing.Print('H: ')(H);
