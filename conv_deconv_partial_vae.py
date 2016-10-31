@@ -1147,7 +1147,7 @@ class VFuncSampler:
 
     # Solve parallelly.
     def solve(self, image, num_samples, bonus, mask=None):
-
+        print("Sampling...");
         inpZ = self.tf.encode(image)[0];
 
         pseudo_rewards = bonus.compute( image, mask );
@@ -1189,6 +1189,7 @@ class VFuncSampler:
         """
         sampleX_rs = sampleX.reshape([num_samples, image.shape[0], 3, 28, 28 ]).transpose([1,0,2,3,4]);
 
+        print("Computing value function.");
         spns = zip(sampleX_rs, pseudo_rewards, np.array( [num_samples] * image.shape[0] ) );
         vfunc_total = np.array( self.pool.map( process_board_avgr, spns ) );
 
