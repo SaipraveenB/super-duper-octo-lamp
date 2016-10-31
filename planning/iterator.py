@@ -34,8 +34,8 @@ class ValueIterator:
         return np.array(V);
 
     def solve_pseudo(self, R, P, pR):
-        V = planning.planner.value_iteration( R, P, pR );
+        V = planning.planner.value_iteration_pr( R, P, pR );
         return np.array(V);
 
-    def get_parameters(self, pixels, pseudo):
-        return self.mdpd.deduce_r(pixels) + pseudo, self.mdpd.deduce_p(pixels);
+    def get_parameters(self, pixels):
+        return self.mdpd.deduce_r(pixels), self.mdpd.deduce_p(pixels);

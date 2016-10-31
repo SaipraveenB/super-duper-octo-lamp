@@ -164,7 +164,7 @@ class MultiAgent:
         for k in range(0, max_steps):
             print ("At step ", k);
             vfuncs = self.vfs.solve( imageset.transpose([0,3,1,2]), 10, bonus=self.bonus, mask=maskset );
-
+            print ("Advancing samples.");
             for t in range(0,self.num_agents):
                 #print ("Advancing samples.")
                 if has_ended[t]:

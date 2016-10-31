@@ -981,17 +981,61 @@ class AlphaPseudoReward:
         pseudo_rewards = self.alpha * de_dx;
 
 
-from multiprocessing.pool import ThreadPool;
+#from multiprocessing.pool import ThreadPool;
 from multiprocessing import Pool;
 
+
+def process_board( spn ):
+    samples = spn[0];
+    pseudo = spn[1];
+    num_samples = spn[2];
+    # Process ith board.
+    vi = planning.iterator.ValueIterator();
+    vfunc_t = np.ones([1, 30, 30])
+    for j in range(0, num_samples):
+        # ith board from jth sample.
+        sample = samples[j];
+        pix = sample.transpose([1, 2, 0])
+        vfunc, R = vi.iterate(pix, pseudo)
+        vfunc = np.reshape(vfunc, [1, 30, 30])
+        vfunc_t += vfunc
+        return vfunc_t
+
+def process_board_avgr( spn ):
+
+    samples = spn[0];
+    pseudo = spn[1];
+    num_samples = spn[2];
+    # Process ith board.
+    vi = planning.iterator.ValueIterator();
+    vfunc_t = np.ones([1, 30, 30])
+
+    r_tot = np.zeros([28,28]);
+    p_tot = np.zeros([4,28,28,3,3]);
+    for j in range(0, num_samples):
+        # ith board from jth sample.
+        sample = samples[j];
+        pix = sample.transpose([1, 2, 0])
+        R,P = vi.get_parameters(pix);
+        r_tot += R;
+        p_tot += P;
+
+    r_tot /= num_samples;
+    p_tot /= num_samples;
+
+    vfunc = vi.solve_pseudo( r_tot, flatten_p( p_tot ), pseudo );
+    vfunc = np.reshape(vfunc, [1, 30, 30])
+
+    return vfunc
+
 class VFuncSampler:
-    def __init__(self, tf, grbm, threads=8):
+    def __init__(self, tf, grbm, threads=4):
         self.tf = tf;
         self.grbm = grbm;
         self.vi = planning.iterator.ValueIterator();
 
         self.threads = threads;
-        self.pool = ThreadPool(threads);
+        self.pool = Pool(threads);
 
     def solve_one(self, image, num_samples, plot=False, target_dir=None, suffix=""):
         inpZ = self.tf.encode(image)[0];
@@ -1143,22 +1187,12 @@ class VFuncSampler:
                 vfunc = np.reshape(vfunc, [1, 30, 30]);
                 vfunc_total[i] += vfunc;
         """
-        sampleX_rs = sampleX.reshape([num_samples, image.shape[0], 3, 28, 28 ]);
+        sampleX_rs = sampleX.reshape([num_samples, image.shape[0], 3, 28, 28 ]).transpose([1,0,2,3,4]);
 
-        def process_board(i):
-            # Process ith board.
-            vfunc_t = np.ones([1,30,30])
-            for j in range(0,num_samples):
-                # ith board from jth sample.
-                sample = sampleX_rs[j][i]
-                pix = sample.transpose([1, 2, 0])
-                vfunc, R = self.vi.iterate(pix, pseudo_rewards[i])
-                vfunc = np.reshape(vfunc, [1, 30, 30])
-                vfunc_t += vfunc
-                return vfunc_t
+        spns = zip(sampleX_rs, pseudo_rewards, np.array( [num_samples] * image.shape[0] ) );
+        vfunc_total = np.array( self.pool.map( process_board_avgr, spns ) );
 
-        vfunc_total = np.array( self.pool.map( process_board, [(i) for i in range(sampleX_rs[0].shape[0])] ) );
-        return vfunc_total/num_samples;
+        return vfunc_total;
 
 
 run_number = 15;
@@ -1269,8 +1303,8 @@ def run_agent():
     start_img = np.zeros((28, 28, 3));
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
 
-    vfs_1 = VFuncSampler(tf, grbm, threads=8);
-    vfs_0 = VFuncSampler(tf, grbm, threads=8);
+    vfs_1 = VFuncSampler(tf, grbm, threads=4);
+    vfs_0 = VFuncSampler(tf, grbm, threads=4);
 
     env = AlternatorWorld(28,28,(3,3));
 
