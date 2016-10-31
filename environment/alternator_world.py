@@ -80,8 +80,8 @@ class AlternatorWorld:
         self.kernel = get_kernel((self.kh, self.kw)).astype(bool)
 
         # Randomly sample an env
-        self.env = ColorWorld(w, h).get_world()
-        self.inner_grid = numpy.transpose(self.env[0], [1, 0, 2])
+        self.env = ColorWorld(w, h).get_world();
+        self.inner_grid = numpy.transpose(self.env[0], [0, 1, 2])
         self.grid = numpy.zeros((h + 2 * (self.kh / 2), w + 2 * (self.kw / 2), 3))
         self.grid[self.kh / 2:self.kh / 2 + h, self.kw / 2:self.kw / 2 + w] = self.inner_grid
         self.rewards = numpy.zeros((h + 2 * (self.kh / 2), w + 2 * (self.kw / 2)))
@@ -146,17 +146,19 @@ class AlternatorWorld:
         self.cur_pos = new_pos
 
         # Return vis matrix.
+
         seen_pts = self.get_seen_mask()
-        total_seen = numpy.multiply(
-            self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w].astype(float).reshape(
-                (self.h, self.w, 1)), self.grid[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w])
+        seen_pts[self.cur_pos[0], self.cur_pos[1]] = True
+        total_seen = numpy.multiply(seen_pts.astype(float).reshape(seen_pts.shape + (1,)),
+                                    self.inner_grid);
+
         new_rew = numpy.multiply(numpy.logical_and(seen_pixels, self.kernel).astype(float),
                                  self.rewards[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw])
 
         # Set reward at the center
         new_rew[self.kh / 2, self.kw / 2] = this_reward
 
-        return (this_reward == -1 or this_reward == +1), seen_pts, total_seen, new_rew
+        return (this_reward == -1 or this_reward == +1), seen_pts, total_seen, new_rew, this_reward
 
     def get_seen_mat(self):
         return numpy.multiply(
