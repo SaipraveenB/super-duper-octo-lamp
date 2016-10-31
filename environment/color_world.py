@@ -43,7 +43,7 @@ class ColorWorld:
             paint(grid, rewards, 0, 4, self.w - 4, 4, (1, 0, 0), 1);
             # right blue.
             # grid[self.h - 1][0] = (1, 0, 0);
-            paint(grid, rewards, self.h - 4, 4, 0, 2, (0, 0, 1), -1);
+            paint(grid, rewards, self.h - 4, 4, 0, 4, (0, 0, 1), -1);
             # Middle yellow.
             paint(grid, rewards, self.h / 2, 4, self.w / 2, 4, (1, 1, 0), 0);
 

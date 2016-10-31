@@ -27,7 +27,7 @@ from skimage.transform import resize
 
 import planning.planner;
 import planning.iterator;
-from agents import Agent
+from agents import Agent, MultiAgent, ParallelMultiAgent
 from environment.alternator_world import AlternatorWorld
 
 from environment.color_world import ColorWorld
@@ -513,7 +513,7 @@ class GaussianRBM:
             self.params = [w,a,b];
 
 
-        V = T.matrix('V',dtype='float64');
+        V = T.matrix('V',dtype=theano.config.floatX);
         H = self._h_from_v(V);
         vv = theano.printing.Print('V: ')(V);
         vh = theano.printing.Print('H: ')(H);
@@ -621,7 +621,7 @@ class GaussianRBM:
         print('TRAINING RBM')
         t = time()
         n = 0.
-        epochs = 1
+        epochs = 5
         iter_num = 0;
         for e in range(epochs):
             cost = 0;
@@ -638,15 +638,16 @@ class GaussianRBM:
                     mu_samples = self.v_given_h(C);
                     mu_map = self.map_v_given_h(C);
                     mu_map_map = self.map_v_given_h(C_map);
+
                     plt.figure();
                     plt.scatter(trX.transpose()[0], trX.transpose()[1], alpha=0.1, s=15, c='b');
                     plt.scatter(mu_samples.transpose()[0], mu_samples.transpose()[1], alpha=0.1, s=15, c='g');
                     plt.scatter(mu_map.transpose()[0], mu_map.transpose()[1], alpha=0.1, s=15, c='r');
                     #plt.show();
+
                     plt.savefig(os.path.join(self.vis_target, "grbm_vis_" + (5-len(str(iter_num))) * "0" + str(iter_num) + ".png") );
 
                 cost = self._fit_function(xmb);
-
                 #Uncomment for the debug version.
                 #cost, a, b, c, d, e, f, g = self._fit_function_dbg(xmb);
 
@@ -654,18 +655,18 @@ class GaussianRBM:
                 n += xmb.shape[0]
 
             print("Train iter", e)
-            print("Cost", cost);
-            print("Average Cost", np.mean(self.costs_));
+            print("Cost", cost)
+            print("Average Cost", np.mean(self.costs_))
             print("Total iters run", self.epoch_)
             print("Time", n / (time() - t))
             self.epoch_ += 1
 
-        # Contruct video.
+        # Construct video.
         if video and plot:
             make_animation_animgif(os.path.join(self.vis_target,"grbm_vis_"),os.path.join(self.vis_target,"grbm_vis"));
 
 class ConvVAE(PickleMixin):
-    def __init__(self, image_save_root=None, snapshot_file="snapshot.pkl"):
+    def __init__(self, image_save_root=None, snapshot_file="snapshot.pkl", force_recompile=False, rc_streams=3):
         self.srng = RandomStreams()
         self.n_code = 2
         self.n_hidden = 64
@@ -679,6 +680,9 @@ class ConvVAE(PickleMixin):
             f = open(self.snapshot_file, 'rb')
             classifier = cPickle.load(f)
             self.__setstate__(classifier.__dict__)
+            if force_recompile:
+                self._setup_functions(np.zeros((1,rc_streams)), np.zeros(1));
+
             f.close()
 
     def _setup_functions(self, trX, trM):
@@ -733,10 +737,13 @@ class ConvVAE(PickleMixin):
 
         #rec_cost = T.sum(T.abs(X - y))
 
-        e_jacobian = T.jacobian( code_mu.flatten(), X );
+        #e_jacobian = T.jacobian( code_mu.flatten(), X );
+        full_jacobians, updates1 = theano.scan(lambda i, code_mu,X : T.jacobian(code_mu[i], X, disconnected_inputs='ignore'), sequences=T.arange(code_mu.shape[0]), non_sequences=[code_mu,X]);
+        full_jacobians = full_jacobians.dimshuffle([0,2,1,3,4,5]);
+        full_jacobian, updates2 = theano.scan(lambda i, full_jacobians : full_jacobians[i][i], sequences=T.arange(code_mu.shape[0]), non_sequences=[full_jacobians])
 
         # Element-wise multiply by the mask to prevent error propagation from unobserved variables.
-        rec_cost = T.sum(T.sqr( (( X - y )/(0.6)) * M )) # / T.cast(X.shape[0], 'float32')
+        rec_cost = T.sum(T.sqr( (( X - y )/(0.2)) * M )) # / T.cast(X.shape[0], 'float32')
 
         prior_cost = log_prior(code_mu, code_log_sigma)
 
@@ -753,7 +760,7 @@ class ConvVAE(PickleMixin):
         self._reconstruct = theano.function([X, e], y)
         self._x_given_z = theano.function([Z_in], y_out)
         self._z_given_x = theano.function([X], (code_mu, code_log_sigma))
-        self._encoder_jacobian = theano.function([X], e_jacobian)
+        self._encoder_jacobian = theano.function([X], full_jacobian, updates=updates1 + updates2)
 
     def _conv_gaussian_enc(self, X, w, w2, w3, b3, wmu, bmu, wsigma, bsigma):
         h = conv_and_pool(X, w)
@@ -784,7 +791,7 @@ class ConvVAE(PickleMixin):
 
 
 
-    def fit(self, trX, trM ):
+    def fit(self, trX, trM, max_iters=1000):
         if not hasattr(self, "_fit_function"):
             self._setup_functions(trX, trM)
 
@@ -794,7 +801,7 @@ class ConvVAE(PickleMixin):
         t = time()
         n = 0.
         epochs = 400
-        for e in range(epochs):
+        for e in range(max_iters):
             iter_num = 0;
             #print( size(trX) );
             for xmb,xmm in iter_data( trX, trM, size=self.n_batch):
@@ -812,7 +819,7 @@ class ConvVAE(PickleMixin):
             print("Time", n / (time() - t))
             self.epoch_ += 1
 
-            if e % 5 == 0:
+            if e % 40 == 0:
                 print("Saving model snapshot")
                 f = open(self.snapshot_file, 'wb')
                 cPickle.dump(self, f, protocol=2)
@@ -889,7 +896,7 @@ class ConvVAE(PickleMixin):
         return self._x_given_z(Z)
 
     def encoder_jacobian(self,trX):
-        X = T.tensor4()
+        """X = T.tensor4()
         M = T.tensor4()
         e = T.matrix()
         code_mu, code_log_sigma, Z, y = self._model(X, e)
@@ -897,7 +904,7 @@ class ConvVAE(PickleMixin):
 
         e_jacobian = T.jacobian(code_mu.flatten(), X);
 
-        self._encoder_jacobian = theano.function([X], e_jacobian)
+        self._encoder_jacobian = theano.function([X], e_jacobian)"""
 
         return self._encoder_jacobian(trX);
 
@@ -927,8 +934,8 @@ def flatten_p( parr ):
 
 
 
-#MASK_LINE_COEFFS = [(0,1,0.5),(1,0,0.5),(1,1,1),(-1,-1,-1),(1,-1,0),(-1,1,0),(0,-1,-0.5),(-1,0,-0.5)];
-MASK_LINE_COEFFS = [(0,1,0.5),(1,0,0.5),(0,-1,-0.5),(-1,0,-0.5)];
+MASK_LINE_COEFFS = [(0,1,0.5),(1,0,0.5),(1,1,1),(-1,-1,-1),(1,-1,0),(-1,1,0),(0,-1,-0.5),(-1,0,-0.5)];
+#MASK_LINE_COEFFS = [(0,1,0.5),(1,0,0.5),(0,-1,-0.5),(-1,0,-0.5)];
 
 import random;
 def random_mask(X):
@@ -937,7 +944,7 @@ def random_mask(X):
 
     # Mask.
     M = np.ones(X.shape);
-    r = random.randint(0, 3);
+    r = random.randint(0, 7);
     coeffs = MASK_LINE_COEFFS[r];
     for (i,j) in [(x,y) for x in range(X.shape[0]) for y in range(X.shape[1]) ]:
         fi = i/float(X.shape[1]);
@@ -950,12 +957,41 @@ def random_mask(X):
     return X,M;
 
 
-class VFuncSampler:
+class AlphaPseudoReward:
     def __init__(self, tf, grbm, alpha ):
+        self.tf = tf
+        self.grbm = grbm
+        self.alpha = alpha;
+
+        pass;
+
+    def compute(self, image, inpZ ):
+        # Nx2
+        # Nx2x3x28x28 jacobian
+        dz_dx = self.tf.encoder_jacobian( image + 0.001 );
+        # Nx2x28x28x3
+        dz_dx = np.transpose( dz_dx, [0, 1, 3, 4, 2])
+        # Nx2
+        de_dz = self.grbm.total_energy_gradient(inpZ + 0.001);
+        # sum( sum( ( Nx2x1x1x1 * Nx2x28x28x3 ) = Nx2x28x28x3, axis=1 ) = Nx28x28x3, axis=3 ) = Nx28x28
+        #de_dx = np.sum( np.abs(np.tensordot(dz_dx, de_dz, axes=[0, 1])), axis=2);
+        de_dx = np.sum( np.abs( np.sum( de_dz.reshape([ de_dz.shape[0],de_dz.shape[1],1,1,1 ]) * dz_dx, axis=1) ), axis=3 );
+
+        # Nx28x28
+        pseudo_rewards = self.alpha * de_dx;
+
+
+from multiprocessing.pool import ThreadPool;
+from multiprocessing import Pool;
+
+class VFuncSampler:
+    def __init__(self, tf, grbm, threads=8):
         self.tf = tf;
         self.grbm = grbm;
         self.vi = planning.iterator.ValueIterator();
-        self.alpha = alpha;
+
+        self.threads = threads;
+        self.pool = ThreadPool(threads);
 
     def solve_one(self, image, num_samples, plot=False, target_dir=None, suffix=""):
         inpZ = self.tf.encode(image)[0];
@@ -964,8 +1000,9 @@ class VFuncSampler:
         dz_dx = self.tf.encoder_jacobian( image + 0.001 );
         dz_dx = np.reshape( np.transpose( dz_dx, [0, 1, 3, 4, 2]), [2, 28, 28, 3] );
         # 1x2
-        de_dz = self.grbm.total_energy_gradient(np.ones((1, 2)) * 0.001);
-        de_dx = np.sum( np.abs(np.tensordot(dz_dx, de_dz, axes=[0, 1])), axis=2);
+        de_dz = self.grbm.total_energy_gradient( inpZ + 0.001 );
+        #de_dx = np.sum( np.abs(np.tensordot(dz_dx, de_dz, axes=[0, 1])), axis=2);
+        de_dx = np.sum( np.abs(np.tensordot(dz_dx, de_dz, axes=[0, 1]) ), axis=2 );
 
         pseudo_rewards = (self.alpha * de_dx).reshape([28,28]);
 
@@ -983,23 +1020,153 @@ class VFuncSampler:
             samples = color_grid_vis( sampleX.transpose([0,2,3,1]), show=False );
             imsave( os.path.join( target_dir,"sampler_Xs_" + suffix + ".png" ), samples );
 
-        vfunc_total = np.ones([1,1,30,30]);
+        vfunc_total = np.zeros([1,1,30,30]);
+        vfuncs = np.zeros([num_samples,1,30,30]);
+        rewards = np.zeros([num_samples,1,28,28]);
+        i = 0;
+
         for sample in sampleX:
             # Take the first X value.
             pix = sample.transpose([1, 2, 0]);
-            vfunc = self.vi.iterate(pix, pseudo_rewards);
+            vfunc, reward = self.vi.iterate(pix, pseudo_rewards);
             vfunc = np.reshape(vfunc, [1, 1, 30, 30]);
+            reward = np.reshape(reward, [1, 1, 28, 28]);
+            #vfunc_image = bw_grid_vis(vfunc.transpose([0, 2, 3, 1]).reshape([1, 30, 30])[0:1,1:29,1:29], show=False);
+
+            vfuncs[i] = vfunc[0];
+            rewards[i] = reward[0];
             vfunc_total += vfunc;
+            i += 1;
+
+
+        if plot:
+            vfunc_image = bw_grid_vis( vfuncs.transpose([0,2,3,1]).reshape([vfuncs.shape[0],30,30]), show=True );
+            imsave( os.path.join( target_dir, "vfuncs_" + suffix + ".png" ), vfunc_image );
+
+            rewards_image = bw_grid_vis( rewards.transpose([0, 2, 3, 1]).reshape([rewards.shape[0], 28, 28]), show=True);
+            imsave(os.path.join(target_dir, "rewards_" + suffix + ".png"), rewards_image);
 
         return vfunc_total/num_samples;
+    def solve_one_avgR(self, image, num_samples, plot=False, target_dir=None, suffix=""):
+        inpZ = self.tf.encode(image)[0];
 
-run_number = 11;
+        # 1x2x28x28x3 jacobian
+        dz_dx = self.tf.encoder_jacobian( image + 0.001 );
+        dz_dx = np.reshape( np.transpose( dz_dx, [0, 1, 3, 4, 2]), [2, 28, 28, 3] );
+        # 1x2
+        de_dz = self.grbm.total_energy_gradient( inpZ + 0.001 );
+        de_dx = np.sum( np.abs(np.tensordot(dz_dx, de_dz, axes=[0, 1])), axis=2);
+        #de_dx = -np.sum( np.tensordot(dz_dx, de_dz, axes=[0, 1]), axis=2 )
+
+        pseudo_rewards = (self.alpha * de_dx).reshape([28,28]);
+
+        # Sample a H and V.
+        sampleH = self.grbm.h_given_v(np.tile(inpZ,[num_samples,1]))
+        sampleV = self.grbm.v_given_h(sampleH)
+        sampleX = self.tf.decode(sampleV)
+
+        if plot:
+            plt.figure();
+            plt.scatter(sampleV.transpose()[0], sampleV.transpose()[1], alpha=0.1, s=15, c='b');
+            plt.scatter(inpZ.transpose()[0], inpZ.transpose()[1], alpha=0.5, s=35, c='k');
+            plt.savefig( os.path.join( target_dir, "sampler_Zs_"+suffix+".png") );
+
+            samples = color_grid_vis( sampleX.transpose([0,2,3,1]), show=False );
+            imsave( os.path.join( target_dir,"sampler_Xs_" + suffix + ".png" ), samples );
+
+        rewards_total = np.zeros([1,1,28,28]);
+        vfuncs = np.zeros([num_samples,1,30,30]);
+        rewards = np.zeros([num_samples,1,28,28]);
+        p_total = np.zeros([4,28,28,3,3]);
+        i = 0;
+        for sample in sampleX:
+            # Take the first X value.
+            pix = sample.transpose([1, 2, 0]);
+            reward,p = self.vi.get_parameters(pix, pseudo_rewards);
+            reward = np.reshape(reward, [1, 1, 28, 28]);
+            p_total += p;
+            rewards[i] = reward[0];
+            rewards_total += reward;
+            i += 1;
+
+        rewards_avg = rewards_total / num_samples;
+        p_avg   = p_total / num_samples;
+
+        v_func = self.vi.solve(rewards_avg, p_avg);
+
+        if plot:
+            rewards_image = bw_grid_vis(v_func.transpose([0, 2, 3, 1]).reshape([v_func.shape[0], 28, 28]), show=True);
+            rewards_image = bw_grid_vis( rewards_avg.transpose([0, 2, 3, 1]).reshape([rewards_avg.shape[0], 28, 28]), show=True);
+            imsave(os.path.join(target_dir, "rewards_" + suffix + ".png"), rewards_image);
+
+        return v_func;
+
+    # Solve parallelly.
+    def solve(self, image, num_samples, bonus, mask=None):
+
+        inpZ = self.tf.encode(image)[0];
+
+        pseudo_rewards = bonus.compute( image, mask );
+
+        # Sample a H and V.
+        # SNx1
+        sampleH = self.grbm.h_given_v(np.tile(inpZ,[num_samples,1]))
+        # SNx2
+        sampleV = self.grbm.v_given_h(sampleH)
+        # SNx3x28x28
+        sampleX = self.tf.decode(sampleV)
+
+        """
+        if plot:
+            plt.figure();
+            plt.scatter(sampleV.transpose()[0], sampleV.transpose()[1], alpha=0.1, s=15, c='b');
+            plt.scatter(inpZ.transpose()[0], inpZ.transpose()[1], alpha=0.5, s=35, c='k');
+            plt.savefig( os.path.join( target_dir, "sampler_Zs_"+suffix+".png") );
+
+            samples = color_grid_vis( sampleX.transpose([0,2,3,1]), show=False );
+            imsave( os.path.join( target_dir,"sampler_Xs_" + suffix + ".png" ), samples );
+        """
+        # Nx1x30x30
+        vfunc_total = np.ones([image.shape[0],1,30,30]);
+        # Nx3x28x28 from SxNx3x28x28
+        #print("Solving for Vfuncs.")
+        s = 0;
+        """
+        for sample in sampleX.reshape([num_samples, image.shape[0], 3, 28, 28 ]):
+            s += 1;
+            for i in range(0,sample.shape[0]):
+                #print("Sample: ", s, " Game: ", i);
+                # Take the first X value.
+                # 28x28x3 from 3x28x28
+                pix = sample[i].transpose([1, 2, 0]);
+                vfunc, R = self.vi.iterate( pix, pseudo_rewards[i] );
+                vfunc = np.reshape(vfunc, [1, 30, 30]);
+                vfunc_total[i] += vfunc;
+        """
+        sampleX_rs = sampleX.reshape([num_samples, image.shape[0], 3, 28, 28 ]);
+
+        def process_board(i):
+            # Process ith board.
+            vfunc_t = np.ones([1,30,30])
+            for j in range(0,num_samples):
+                # ith board from jth sample.
+                sample = sampleX_rs[j][i]
+                pix = sample.transpose([1, 2, 0])
+                vfunc, R = self.vi.iterate(pix, pseudo_rewards[i])
+                vfunc = np.reshape(vfunc, [1, 30, 30])
+                vfunc_t += vfunc
+                return vfunc_t
+
+        vfunc_total = np.array( self.pool.map( process_board, [(i) for i in range(sampleX_rs[0].shape[0])] ) );
+        return vfunc_total/num_samples;
+
+
+run_number = 15;
 def plot_grbm():
-
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
 
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_11-mu.pkl"));
+    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_13-mu.pkl"));
     # print(mu.shape);
     # print(mu.transpose()[0]);
 
@@ -1016,9 +1183,14 @@ def plot_grbm():
     mu_map_map = grbm.map_v_given_h(C_map);
 
     midway_img = np.zeros((28, 28, 3));
-    midway_img[14:14 + 4, 14:14 + 4] = (1, 1, 0);
+    midway_img[14:14 + 4, 14:14 + 4] = (0, 1, 0);
     midway_img = np.reshape(np.transpose(midway_img, [2, 0, 1]), [1, 3, 28, 28]);
     midway_point = tf.encode(midway_img)[0];
+
+    midway_img_2 = np.zeros((28, 28, 3));
+    midway_img_2[14:14 + 3, 14:14 + 3] = (0, 1, 0);
+    midway_img_2 = np.reshape(np.transpose(midway_img_2, [2, 0, 1]), [1, 3, 28, 28]);
+    midway_point_2 = tf.encode(midway_img_2)[0];
 
     start_img = np.zeros((28, 28, 3));
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
@@ -1030,17 +1202,17 @@ def plot_grbm():
     plt.scatter(mu_samples.transpose()[0], mu_samples.transpose()[1], alpha=0.1, s=15, c='g');
     plt.scatter(mu_map.transpose()[0], mu_map.transpose()[1], alpha=0.1, s=15, c='r');
 
-    plt.scatter(midway_point.transpose()[0], midway_point.transpose()[1], alpha=0.5, s=30, c='k');
-    plt.scatter(start_point.transpose()[0], start_point.transpose()[1], alpha=0.5, s=30, c='k');
+    plt.scatter(midway_point.transpose()[0], midway_point.transpose()[1], alpha=0.2, s=70, c='c');
+    plt.scatter(midway_point_2.transpose()[0], midway_point_2.transpose()[1], alpha=0.5, s=70, c='m');
+    plt.scatter(start_point.transpose()[0], start_point.transpose()[1], alpha=0.2, s=70, c='k');
 
     plt.show();
 
 def do_value_iteration():
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_12.pkl")
 
-
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_11-mu.pkl"));
+    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_12-mu.pkl"));
     # print(mu.shape);
     # print(mu.transpose()[0]);
 
@@ -1049,18 +1221,18 @@ def do_value_iteration():
     grbm.fit(mu);
 
     midway_img = np.zeros((28, 28, 3));
-    midway_img[14:14 + 4, 14:14 + 4] = (1, 1, 0);
+    midway_img[14:14 + 3, 14:14 + 3] = (0, 1, 0);
     midway_img = np.reshape(np.transpose(midway_img, [2, 0, 1]), [1, 3, 28, 28]);
 
     start_img = np.zeros((28,28,3));
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
 
-    vfs_1 = VFuncSampler( tf, grbm, 1 );
+    vfs_1 = VFuncSampler( tf, grbm, 0.1 );
     vfs_0 = VFuncSampler( tf, grbm, 0 );
 
     vfunc_midway = vfs_1.solve_one(midway_img, 10, plot=True, target_dir="/Users/saipraveenb/cseiitm", suffix="midway");
     vfunc_start = vfs_1.solve_one(start_img, 10, plot=True, target_dir="/Users/saipraveenb/cseiitm", suffix="start");
-    heatmap1 = bw_grid_vis(vfunc_midway, show=False);
+    heatmap1 = bw_grid_vis(( vfunc_midway - np.min(vfunc_midway) )/(np.max(vfunc_midway)-np.min(vfunc_midway)) , show=False);
     heatmap2 = bw_grid_vis(vfunc_start, show=False);
 
 
@@ -1068,7 +1240,7 @@ def do_value_iteration():
     imsave("/Users/saipraveenb/cseiitm/vfunc_start_a1_" + format(run_number) + ".png", heatmap2);
 
     vfunc_midway = vfs_0.solve_one(midway_img, 10);
-    vfunc_start = vfs_0.solve_one(start_img, 10);
+    vfunc_start = vfs_0.solve_one(start_img, 10, plot=False, target_dir="/Users/saipraveenb/cseiitm", suffix="start_V0");
     heatmap3 = bw_grid_vis(vfunc_midway, show=False);
     heatmap4 = bw_grid_vis(vfunc_start, show=False);
 
@@ -1080,9 +1252,9 @@ def do_value_iteration():
 def run_agent():
 
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
 
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_11-mu.pkl"));
+    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_13-mu.pkl"));
     # print(mu.shape);
     # print(mu.transpose()[0]);
 
@@ -1091,17 +1263,21 @@ def run_agent():
     grbm.fit(mu);
 
     midway_img = np.zeros((28, 28, 3));
-    midway_img[14:14 + 4, 14:14 + 4] = (1, 1, 0);
+    midway_img[14:14 + 3, 14:14 + 3] = (0, 1, 0);
     midway_img = np.reshape(np.transpose(midway_img, [2, 0, 1]), [1, 3, 28, 28]);
 
     start_img = np.zeros((28, 28, 3));
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
 
-    vfs_1 = VFuncSampler(tf, grbm, 1);
-    vfs_0 = VFuncSampler(tf, grbm, 0);
+    vfs_1 = VFuncSampler(tf, grbm, threads=8);
+    vfs_0 = VFuncSampler(tf, grbm, threads=8);
 
     env = AlternatorWorld(28,28,(3,3));
-    a = Agent( tf, grbm, vfs_1, env );
+
+    # Run X agents at once. Helps optimize tensorflow operations.
+    a = MultiAgent( tf, grbm, vfs_1, num_agents=40, img_dir="/Users/saipraveenb/cseiitm", plot=True, prefix="Agent_0_10_");
+    #pam = ParallelMultiAgent(tf, grbm, vfs_1, agents_per_process=10, num_processes=2, img_dir="/Users/saipraveenb/cseiitm", plot=True,
+    #               prefix="Agent_");
 
     image, mask = a.run_episode( max_steps=200 );
 
@@ -1124,22 +1300,22 @@ if __name__ == "__main__":
     #tr, _, _, = mnist('/Users/saipraveenb/cseiitm')
     #trX, trY = tr
 
-
     # Make our own dataset out of fields..
     #lworld = LWorld();
     lwor2 = ColorWorld(28, 28);
 
     # ldata = np.array((100,1,28,28));
     # Put 100 units.
+
     #do_value_iteration();
     #plot_grbm();
     run_agent();
     exit();
-    """
+
     ldata = [];
     mdata = [];
     for i in range(100):
-        X,M = random_mask(lwor2.get_world());
+        X,M = random_mask(lwor2.get_world()[0]);
         ldata.append( X );
         mdata.append( M );
 
@@ -1152,20 +1328,17 @@ if __name__ == "__main__":
     mdata = mdata.transpose([0,3,1,2]);
 
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
 
     trX = floatX(ldata)
     trM = floatX(mdata)
     tf.fit(trX, trM);
     recs = tf.transform(trX[:100])
-
-
     """
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_11.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
 
-
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_11-mu.pkl"));
+    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_13-mu.pkl"));
     #print(mu.shape);
     #print(mu.transpose()[0]);
 
@@ -1187,7 +1360,6 @@ if __name__ == "__main__":
     X_map = tf.decode(mu_map);
     X_map_map = tf.decode(mu_map_map);
     X_actual = tf.decode(mu);
-
 
     midway_img = np.zeros((28,28,3));
     midway_img[14:14+4,14:14+4] = (1,1,0);
@@ -1222,7 +1394,7 @@ if __name__ == "__main__":
     X_m_m_images =  color_grid_vis(X_map_map.transpose([0,2,3,1]), show=False);
     X_a_images  =   color_grid_vis(X_actual.transpose([0,2,3,1]),  show=False);
     # Image manifold.
-    manifold_Z = [(x,y) for x in np.linspace(-0.2,1.2,10) for y in np.linspace(1.2,-0.2,10)];
+    manifold_Z = [(x,y) for x in np.linspace(-0.4,1.4,10) for y in np.linspace(1.4,-0.4,10)];
     X_manifold = tf.decode(manifold_Z);
     X_manifold_images = color_grid_vis(X_manifold.transpose([0,2,3,1]), show=False);
 
@@ -1233,7 +1405,7 @@ if __name__ == "__main__":
     plt.scatter(midway_point.transpose()[0],midway_point.transpose()[1], alpha = 0.5, s=15, c='k');
     plt.show();
 
-    run_number = 11;
+    run_number = 12;
     # Save
     imsave("/Users/saipraveenb/cseiitm/rbm_resamples_"+format(run_number)+".png", X_s_images);
     imsave("/Users/saipraveenb/cseiitm/rbm_map_"+format(run_number)+".png", X_m_images);
@@ -1242,4 +1414,4 @@ if __name__ == "__main__":
     imsave("/Users/saipraveenb/cseiitm/vae_manifold_"+format(run_number)+".png", X_manifold_images);
     imsave("/Users/saipraveenb/cseiitm/jacobian_"+format(run_number)+".png", jacobian_image);
     imsave("/Users/saipraveenb/cseiitm/jacobian_ao_" + format(run_number) + ".png", jacobian_image_2);
-
+    """

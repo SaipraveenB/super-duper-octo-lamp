@@ -7,8 +7,8 @@ class MDPDeducer:
         pass;
 
     def deduce_r(self, pixels):
-        is_r = np.exp( -np.sum( (pixels - (1,0,0)) * (pixels-(1,0,0)), axis=-1 ) );
-        is_b = np.exp( -np.sum( (pixels - (0,0,1)) * (pixels-(0,0,1)), axis=-1 ) );
+        is_r = np.exp( -np.sum( (pixels - (1,0,0)) * (pixels-(1,0,0)), axis=2 )/0.1 );
+        is_b = np.exp( -np.sum( (pixels - (0,0,1)) * (pixels-(0,0,1)), axis=2 )/0.1 );
         return is_r * (-1) + is_b * (+1);
 
     def deduce_p(self, pixels):
@@ -21,10 +21,21 @@ def flatten_p( parr ):
 class ValueIterator:
     def __init__(self):
         self.mdpd = MDPDeducer();
-
         pass;
+
     def iterate(self, pixels, pseudo):
-        R = self.mdpd.deduce_r(pixels) + pseudo;
-        P = flatten_p(self.mdpd.deduce_p(pixels));
+        R = self.mdpd.deduce_r(pixels)# + pseudo;
+        P = flatten_p( self.mdpd.deduce_p(pixels) );
+        V = planning.planner.value_iteration_pr( R, P, pseudo )
+        return np.array(V), R + pseudo;
+
+    def solve(self, R, P):
         V = planning.planner.value_iteration( R, P );
         return np.array(V);
+
+    def solve_pseudo(self, R, P, pR):
+        V = planning.planner.value_iteration( R, P, pR );
+        return np.array(V);
+
+    def get_parameters(self, pixels, pseudo):
+        return self.mdpd.deduce_r(pixels) + pseudo, self.mdpd.deduce_p(pixels);
