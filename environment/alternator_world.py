@@ -115,13 +115,6 @@ class AlternatorWorld:
                                                            numpy.logical_and(seen_pixels, self.kernel))
         return new_vis, new_rew
 
-    def reset(self):
-        # Reset params
-        self.seen = numpy.zeros((self.h, self.w))
-        self.cur_pos = (0, 0)
-
-        return
-
     def step(self, action):
         # Obtain action
         action_vec = self.actions[action]
