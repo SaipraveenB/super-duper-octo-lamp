@@ -6,7 +6,6 @@ import os
 import subprocess as sp;
 import matplotlib.pyplot as plt;
 from scipy.misc import imsave;
-from pathos.multiprocessing import ProcessingPool;
 
 from planning.beta_bonus import BetaBonus
 
