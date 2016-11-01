@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt;
 from scipy.misc import imsave;
 
 from planning.beta_bonus import BetaBonus
+from utils.imaging import colmap_grid
 
 
 def color_grid_vis(X, show=True, save=False, transform=False):
@@ -126,11 +127,31 @@ class ParallelMultiAgent:
         # Fit TF to this.
         #self.tf.fit( iset, mset, max_iters=160 );
 
+def normalize( mat ):
+    return ( mat - np.min(mat) ) / (np.max(mat) - np.min(mat));
+
+def bw_grid_vis(X, show=True, save=False, transform=False):
+    ngrid = int(np.ceil(np.sqrt(len(X))))
+    npxs = np.sqrt(X[0].size)
+    img = np.zeros((npxs * ngrid + ngrid - 1,
+                    npxs * ngrid + ngrid - 1))
+    for i, x in enumerate(X):
+        j = i % ngrid
+        i = i / ngrid
+        if transform:
+            x = transform(x)
+        img[i*npxs+i:(i*npxs)+npxs+i, j*npxs+j:(j*npxs)+npxs+j] = x
+    if show:
+        plt.imshow(img, interpolation='nearest')
+        plt.show()
+    if save:
+        imsave(save, img)
+    return img
 
 # Beta agent.
 class MultiAgent:
 
-    def __init__( self, tf, grbm, vfs, w=28, h=28, k=(3,3), num_agents=10, img_dir="/Users/saipraveenb/cseiitm", plot=False, prefix="" ):
+    def __init__( self, tf, grbm, vfs, w=28, h=28, k=(5,5), num_agents=10, persist=3, img_dir="/Users/saipraveenb/cseiitm", plot=False, prefix="", plot_stride=30 ):
         self.tf = tf;
         self.grbm = grbm;
         self.num_agents = num_agents;
@@ -139,16 +160,22 @@ class MultiAgent:
         self.img_dir = img_dir;
         self.plot = plot;
         self.prefix = prefix;
-
+        self.boarddims = (w,h);
+        self.kernel = k;
+        # Number of steps to persist moves. Used for performance boosting.
+        self.persist = persist;
+        self.plot_stride = plot_stride;
         self.envs = [];
 
         # Move this as an argument.
-        self.bonus = BetaBonus( tf=tf, grbm=grbm, beta=0.05, max_beta=1, board_shape=(num_agents,w,h) ) ;
+        self.bonus = BetaBonus( tf=tf, grbm=grbm, beta=0.5, max_beta=2, board_shape=(num_agents,w,h), kernel_dims=(5,5)) ;
         for i in range(0,num_agents):
             self.envs.append( AlternatorWorld(w,h,k) );
 
         self.num_episodes = 0;
         pass;
+    def set_prefix(self, prefix):
+        self.prefix = prefix;
 
     def run_episode( self, max_steps=200 ):
         for env in self.envs:
@@ -160,24 +187,36 @@ class MultiAgent:
 
         self.bonus.start();
 
+        vfuncs = None;
         # Main loop.
         for k in range(0, max_steps):
             print ("At step ", k);
-            vfuncs = self.vfs.solve( imageset.transpose([0,3,1,2]), 10, bonus=self.bonus, mask=maskset );
+
+            # Only perform VFS once K steps.
+            if k % self.persist == 0:
+                vfuncs, pseudo = self.vfs.solve( imageset.transpose([0,3,1,2]), 4, bonus=self.bonus, mask=maskset );
+
+                if self.plot and k % self.plot_stride == 0:
+                    vfuncs_n = normalize(vfuncs[:, :, 1:29, 1:29]);
+                    vfunc_img = bw_grid_vis( vfuncs_n, show=False);
+                    imsave( os.path.join(self.img_dir, self.prefix + "_vfunc_step_" + format(k).zfill(5) + ".png"), vfunc_img );
+                    colmap_grid( pseudo, show=False, save=os.path.join(self.img_dir, self.prefix + "_pseudo_step_" + format(k).zfill(5) + ".png") );
+
             print ("Advancing samples.");
             for t in range(0,self.num_agents):
                 #print ("Advancing samples.")
                 if has_ended[t]:
                     continue;
 
-
                 aindices = ( self.envs[t].actions + self.envs[t].cur_pos + (1, 1) ).transpose();
                 actionvals = np.array(vfuncs[t][0][ list( aindices ) ]);
                 action = np.argmax( actionvals )
 
-                if np.random.rand() < ( ( 1.0 / (1 + 0.5 * self.num_episodes) ) + 1.0 ):
-                    action = np.random.randint(0,3);
+                #if np.random.rand() < ( ( 1.0 / (1 + 0.5 * self.num_episodes) ) + 1.0 ):
+                if np.random.rand() < 0.2:
+                    action = np.random.randint(0,4);
 
+                print action;
                 ended, mask, image, rewards, reward = self.envs[t].step( action );
 
                 # Update the t-th plane in the Bonus board.
@@ -187,17 +226,29 @@ class MultiAgent:
                 has_ended[t] = ended;
                 maskset[t] = mask;
 
-
             print "At: ", [env.cur_pos for env in self.envs];
 
-            if self.plot:
-                grid_img = color_grid_vis( imageset + 0.2 * maskset.reshape(maskset.shape + (1,)), show=False );
+            if self.plot and k % self.plot_stride == 0:
+                fset = imageset + 0.2 * maskset.reshape(maskset.shape + (1,))
+                for i in range(0,len(self.envs)):
+                    fset[i][self.envs[i].cur_pos] = (1,1,1);
+
+                grid_img = color_grid_vis( fset, show=False );
                 #mask_img = bw_grid_vis( maskset, show=False );
-                imsave( os.path.join(self.img_dir, self.prefix + "_grid_step_" + format(k) + ".png" ), grid_img )
+                imsave( os.path.join(self.img_dir, self.prefix + "_grid_step_" + format(k).zfill(5) + ".png" ), grid_img )
+
                 #imsave(os.path.join(self.img_dir, self.prefix + "_mask_step_" + format(k) + ".png" ), mask_img)
 
             if np.all( np.array( has_ended ) ):
                 break
 
+        self.bonus.dump_bonuses(os.path.join(self.img_dir, self.prefix + "_final_bonus.png"));
         return imageset, maskset
+
+    def reset(self):
+        self.envs = [];
+        for i in range(0,self.num_agents):
+            self.envs.append( AlternatorWorld(self.boarddims[0],self.boarddims[1],self.kernel) );
+
+        pass
 

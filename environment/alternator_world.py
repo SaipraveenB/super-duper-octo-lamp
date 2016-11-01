@@ -68,12 +68,13 @@ def get_big_fig(size, pixel_vals):
 
 # kh, kw = both odd
 class AlternatorWorld:
+
     def __init__(self, h, w, kernel_dims):
         # env dims
         self.w = w
         self.h = h
         self.cur_pos = (0, 0)
-
+        self.history = [(0,0)];
         # Kernel dims
         self.kh = kernel_dims[0]
         self.kw = kernel_dims[1]
@@ -136,6 +137,7 @@ class AlternatorWorld:
             numpy.logical_and(seen_pixels, self.kernel))
 
         # Update cur pos
+        self.history.append(new_pos);
         self.cur_pos = new_pos
 
         # Return vis matrix.
