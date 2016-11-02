@@ -9,6 +9,7 @@ def normalize( mat ):
 def normalize_vfunc( mat ):
     mat = mat[:,0,1:mat.shape[2]-1,1:mat.shape[3]-1];
     return (mat - np.min(mat)) / (np.max(mat) - np.min(mat));
+
 def vfuncify( mat ):
     return mat[:,0,1:mat.shape[2]-1,1:mat.shape[3]-1];
 

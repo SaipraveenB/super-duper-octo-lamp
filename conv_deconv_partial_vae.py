@@ -624,7 +624,7 @@ class GaussianRBM:
         print('TRAINING RBM')
         t = time()
         n = 0.
-        epochs = 5
+        epochs = 10
         iter_num = 0;
         for e in range(epochs):
             cost = 0;
@@ -969,7 +969,7 @@ def plot_grbm():
     # print(mu.shape);
     # print(mu.transpose()[0]);
 
-    grbm = GaussianRBM("/Users/saipraveenb/cseiitm", 0.004, 0.004, 0.004, 0.1);
+    grbm = GaussianRBM("/Users/saipraveenb/cseiitm", 0.01, 0.01, 0.01, 0.5);
 
     grbm.fit(mu);
     # Get hidden node samples.
@@ -993,7 +993,27 @@ def plot_grbm():
 
     start_img = np.zeros((28, 28, 3));
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
+
+
+    ldata = [];
+    # mdata = [];
+    for i in range(100):
+        # X, M = random_mask();
+        ldata.append(lwor2.get_world()[0]);
+        # mdata.append(M);
+
+    ldata = np.array(ldata);
+    # mdata = np.array(mdata);
+
+    color_grid_vis(ldata, show=True);
+
+    ldata = ldata.transpose([0, 3, 1, 2]);
+    # data = mdata.transpose([0, 3, 1, 2]);
+
+    start_img = np.mean(ldata, axis=0).reshape((1, 3, 28, 28));
     start_point = tf.encode(start_img)[0];
+
+    color_grid_vis(start_img.transpose([0, 2, 3, 1]), show=True);
 
     plt.figure();
     plt.scatter(mu.transpose()[0], mu.transpose()[1], alpha=0.1, s=15, c='b');
@@ -1009,22 +1029,40 @@ def plot_grbm():
 
 def do_value_iteration():
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_12.pkl")
+                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
 
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_12-mu.pkl"));
+    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_13-mu.pkl"));
     # print(mu.shape);
     # print(mu.transpose()[0]);
 
-    grbm = GaussianRBM("/Users/saipraveenb/cseiitm", 0.004, 0.004, 0.04, 0.4);
+    grbm = GaussianRBM("/Users/saipraveenb/cseiitm", 0.1, 0.1, 0.5, 0.7);
 
-    grbm.fit(mu);
+    grbm.fit(mu, plot=True, video=True);
 
     midway_img = np.zeros((28, 28, 3));
     midway_img[14:14 + 3, 14:14 + 3] = (0, 1, 0);
     midway_img = np.reshape(np.transpose(midway_img, [2, 0, 1]), [1, 3, 28, 28]);
 
+    ldata = [];
+    #mdata = [];
+    for i in range(100):
+        #X, M = random_mask();
+        ldata.append(lwor2.get_world()[0]);
+        #mdata.append(M);
+
+    ldata = np.array(ldata);
+    #mdata = np.array(mdata);
+
+    color_grid_vis(ldata, show=True);
+
+    ldata = ldata.transpose([0, 3, 1, 2]);
+    #data = mdata.transpose([0, 3, 1, 2]);
+
     start_img = np.zeros((28,28,3));
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
+    #start_img = np.mean(ldata, axis=0).reshape((1,3,28,28));
+    color_grid_vis(start_img.transpose([0,2,3,1]), show=True);
+
 
     vfs_1 = VFuncSampler( tf, grbm, threads=4 );
     vfs_0 = VFuncSampler( tf, grbm, threads=4 );
@@ -1041,8 +1079,8 @@ def do_value_iteration():
 
     #vfunc_midway = vfs_0.solve_one(midway_img, 10);
     #vfunc_start = vfs_0.solve_one(start_img, 10, plot=False, target_dir="/Users/saipraveenb/cseiitm", suffix="start_V0");
-    beta = BetaBonus(tf=tf, grbm=grbm, beta=0.5, max_beta=10, board_shape=(1, 28, 28))
-    vfunc_start = vfs_0.solve( start_img, 10, bonus=beta, mask=np.zeros((1,28,28)), plot=True, target_dir="/Users/saipraveenb/cseiitm/vfunctest", suffix="start_V0" );
+    beta = BetaBonus(tf=tf, grbm=grbm, beta=0.5, max_beta=10, board_shape=(1, 28, 28), kernel_dims=(5,5))
+    vfunc_start, r = vfs_0.solve( start_img, 10, bonus=beta, mask=np.zeros((1,28,28)), plot=True, target_dir="/Users/saipraveenb/cseiitm/vfunctest", suffix="start_V0" );
 
     #heatmap3 = bw_grid_vis(vfunc_midway, show=False);
     heatmap4 = heatmap( vfuncify( vfunc_start ), show=True, save="/Users/saipraveenb/cseiitm/vfunctest/vfunc_start_a0_" + format(run_number) + ".png");
@@ -1124,9 +1162,9 @@ if __name__ == "__main__":
     # ldata = np.array((100,1,28,28));
     # Put 100 units.
 
-    #do_value_iteration();
+    do_value_iteration();
     #plot_grbm();
-    run_agent();
+    #run_agent();
     exit();
 
     ldata = [];
@@ -1151,6 +1189,9 @@ if __name__ == "__main__":
     trM = floatX(mdata)
     tf.fit(trX, trM);
     recs = tf.transform(trX[:100])
+
+
+
     """
     tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
                  snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
