@@ -2,6 +2,9 @@ import planning.iterator;
 
 from multiprocessing import Pool
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import os
 from utils.imaging import color_grid_vis, bw_grid_vis

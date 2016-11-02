@@ -6,6 +6,9 @@
 # Rewards = Good end = +1, Bad end = -1
 #
 import numpy
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot
 
 import utils.env_utils as env_utils
 import utils.imaging as imaging

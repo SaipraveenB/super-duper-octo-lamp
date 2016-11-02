@@ -97,7 +97,7 @@ class Agent:
 
 import multiprocessing.pool
 class ParallelMultiAgent:
-    def __init__( self, tf, grbm, vfs, w=28, h=28, k=(3,3), num_processes=8, agents_per_process=10, img_dir="/Users/saipraveenb/cseiitm", plot=False, prefix="" ):
+    def __init__( self, tf, grbm, vfs, w=28, h=28, k=(4,4), num_processes=8, agents_per_process=10, img_dir="/Users/saipraveenb/cseiitm", plot=False, prefix="" ):
         self.tf = tf;
         self.grbm = grbm;
         self.num_processes = num_processes;
@@ -151,7 +151,7 @@ def bw_grid_vis(X, show=True, save=False, transform=False):
 # Beta agent.
 class MultiAgent:
 
-    def __init__( self, tf, grbm, vfs, w=28, h=28, k=(5,5), num_agents=10, persist=3, img_dir="/Users/saipraveenb/cseiitm", plot=False, prefix="", plot_stride=30 ):
+    def __init__( self, tf, grbm, vfs, w=28, h=28, k=(7,7), num_agents=10, persist=3, img_dir="/Users/saipraveenb/cseiitm", plot=False, prefix="", plot_stride=30 ):
         self.tf = tf;
         self.grbm = grbm;
         self.num_agents = num_agents;
@@ -168,7 +168,7 @@ class MultiAgent:
         self.envs = [];
 
         # Move this as an argument.
-        self.bonus = BetaBonus( tf=tf, grbm=grbm, beta=0.5, max_beta=2, board_shape=(num_agents,w,h), kernel_dims=(5,5)) ;
+        self.bonus = BetaBonus( tf=tf, grbm=grbm, beta=0.5, max_beta=4, board_shape=(num_agents,w,h), kernel_dims=(5,5)) ;
         for i in range(0,num_agents):
             self.envs.append( AlternatorWorld(w,h,k) );
 

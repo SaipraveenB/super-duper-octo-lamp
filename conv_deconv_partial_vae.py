@@ -18,6 +18,8 @@ import cPickle
 import fnmatch
 from time import time
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from scipy.misc import imsave, imread
 import os
@@ -34,6 +36,7 @@ from environment.color_world import ColorWorld
 from environment.l_world import LWorld2,LWorld
 from planning.beta_bonus import BetaBonus
 from planning.vfs import VFuncSampler
+
 from utils.imaging import normalize_vfunc,heatmap, vfuncify
 
 
@@ -145,7 +148,7 @@ def orthogonal(shape, scale=1.1):
     return sharedX(scale * q[:shape[0], :shape[1]])
 
 
-def color_grid_vis(X, show=True, save=False, transform=False):
+def color_grid_vis(X, show=False, save=False, transform=False):
     ngrid = int(np.ceil(np.sqrt(len(X))))
     npxs = np.sqrt(X[0].size/3)
     img = np.zeros((npxs * ngrid + ngrid - 1,
@@ -962,14 +965,14 @@ from multiprocessing import Pool;
 
 run_number = 15;
 def plot_grbm():
-    tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
+    tf = ConvVAE(image_save_root="/home/saipraveen/datafiles",
+                 snapshot_file="/home/saipraveen/datafiles/mnist_snapshot_13.pkl")
 
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_13-mu.pkl"));
+    mu = cPickle.load(open("/home/saipraveen/datafiles/mnist_snapshot_13-mu.pkl"));
     # print(mu.shape);
     # print(mu.transpose()[0]);
 
-    grbm = GaussianRBM("/Users/saipraveenb/cseiitm", 0.004, 0.004, 0.004, 0.1);
+    grbm = GaussianRBM("/home/saipraveen/datafiles", 0.004, 0.004, 0.004, 0.1);
 
     grbm.fit(mu);
     # Get hidden node samples.
@@ -1008,14 +1011,14 @@ def plot_grbm():
     plt.show();
 
 def do_value_iteration():
-    tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_12.pkl")
+    tf = ConvVAE(image_save_root="/home/saipraveen/datafiles",
+                 snapshot_file="/home/saipraveen/datafiles/mnist_snapshot_12.pkl")
 
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_12-mu.pkl"));
+    mu = cPickle.load(open("/home/saipraveen/datafiles/mnist_snapshot_12-mu.pkl"));
     # print(mu.shape);
     # print(mu.transpose()[0]);
 
-    grbm = GaussianRBM("/Users/saipraveenb/cseiitm", 0.004, 0.004, 0.04, 0.4);
+    grbm = GaussianRBM("/home/saipraveen/datafiles", 0.004, 0.004, 0.04, 0.4);
 
     grbm.fit(mu);
 
@@ -1027,41 +1030,41 @@ def do_value_iteration():
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
 
     vfs_1 = VFuncSampler( tf, grbm, threads=4 );
-    vfs_0 = VFuncSampler( tf, grbm, threads=4 );
+    #vfs_0 = VFuncSampler( tf, grbm, threads=4 );
 
-    #vfunc_midway = vfs_1.solve_one(midway_img, 10, plot=True, target_dir="/Users/saipraveenb/cseiitm", suffix="midway");
-    #vfunc_start = vfs_1.solve_one(start_img, 10, plot=True, target_dir="/Users/saipraveenb/cseiitm", suffix="start");
+    #vfunc_midway = vfs_1.solve_one(midway_img, 10, plot=True, target_dir="/home/saipraveen/datafiles", suffix="midway");
+    #vfunc_start = vfs_1.solve_one(start_img, 10, plot=True, target_dir="/home/saipraveen/datafiles", suffix="start");
     #heatmap1 = bw_grid_vis(( vfunc_midway - np.min(vfunc_midway) )/(np.max(vfunc_midway)-np.min(vfunc_midway)) , show=False);
     #heatmap2 = bw_grid_vis(vfunc_start, show=False);
 
 
-    #imsave("/Users/saipraveenb/cseiitm/vfunc_midway_a1_" + format(run_number) + ".png", heatmap1);
-    #imsave("/Users/saipraveenb/cseiitm/vfunc_start_a1_" + format(run_number) + ".png", heatmap2);
+    #imsave("/home/saipraveen/datafiles/vfunc_midway_a1_" + format(run_number) + ".png", heatmap1);
+    #imsave("/home/saipraveen/datafiles/vfunc_start_a1_" + format(run_number) + ".png", heatmap2);
 
 
     #vfunc_midway = vfs_0.solve_one(midway_img, 10);
-    #vfunc_start = vfs_0.solve_one(start_img, 10, plot=False, target_dir="/Users/saipraveenb/cseiitm", suffix="start_V0");
+    #vfunc_start = vfs_0.solve_one(start_img, 10, plot=False, target_dir="/home/saipraveen/datafiles", suffix="start_V0");
     beta = BetaBonus(tf=tf, grbm=grbm, beta=0.5, max_beta=10, board_shape=(1, 28, 28))
-    vfunc_start = vfs_0.solve( start_img, 10, bonus=beta, mask=np.zeros((1,28,28)), plot=True, target_dir="/Users/saipraveenb/cseiitm/vfunctest", suffix="start_V0" );
+    vfunc_start = vfs_0.solve( start_img, 10, bonus=beta, mask=np.zeros((1,28,28)), plot=True, target_dir="/home/saipraveen/datafiles/vfunctest", suffix="start_V0" );
 
     #heatmap3 = bw_grid_vis(vfunc_midway, show=False);
-    heatmap4 = heatmap( vfuncify( vfunc_start ), show=True, save="/Users/saipraveenb/cseiitm/vfunctest/vfunc_start_a0_" + format(run_number) + ".png");
+    heatmap4 = heatmap( vfuncify( vfunc_start ), show=True, save="/home/saipraveen/datafiles/vfunctest/vfunc_start_a0_" + format(run_number) + ".png");
 
-    #imsave("/Users/saipraveenb/cseiitm/vfunc_midway_a0_" + format(run_number) + ".png", heatmap3);
-    #imsave("/Users/saipraveenb/cseiitm/vfunctest/vfunc_start_a0_" + format(run_number) + ".png", heatmap4);
+    #imsave("/home/saipraveen/datafiles/vfunc_midway_a0_" + format(run_number) + ".png", heatmap3);
+    #imsave("/home/saipraveen/datafiles/vfunctest/vfunc_start_a0_" + format(run_number) + ".png", heatmap4);
 
     #planning.planner.value_iterate( )
 
 def run_agent():
 
-    tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
+    tf = ConvVAE(image_save_root="/home/saipraveen/datafiles",
+                 snapshot_file="/home/saipraveen/datafiles/mnist_snapshot_13.pkl")
 
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_13-mu.pkl"));
+    mu = cPickle.load(open("/home/saipraveen/datafiles/mnist_snapshot_13-mu.pkl"));
     # print(mu.shape);
     # print(mu.transpose()[0]);
 
-    grbm = GaussianRBM("/Users/saipraveenb/cseiitm", 0.004, 0.004, 0.04, 0.2);
+    grbm = GaussianRBM("/home/saipraveen/datafiles", 0.004, 0.004, 0.04, 0.2);
 
     grbm.fit(mu);
 
@@ -1072,31 +1075,31 @@ def run_agent():
     start_img = np.zeros((28, 28, 3));
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
 
-    vfs_1 = VFuncSampler(tf, grbm, threads=4);
-    vfs_0 = VFuncSampler(tf, grbm, threads=4);
+    vfs_1 = VFuncSampler(tf, grbm, threads=40);
+    #vfs_0 = VFuncSampler(tf, grbm, threads=4);
 
-    env = AlternatorWorld(28,28,(3,3));
+    env = AlternatorWorld(28,28,(4,4));
 
     # Run X agents at once. Helps optimize tensorflow operations.
-    a = MultiAgent( tf, grbm, vfs_1, num_agents=8, img_dir="/Users/saipraveenb/cseiitm", plot=True, prefix="Agent_0_10_", plot_stride=3);
-    #pam = ParallelMultiAgent(tf, grbm, vfs_1, agents_per_process=10, num_processes=2, img_dir="/Users/saipraveenb/cseiitm", plot=True,
+    a = MultiAgent( tf, grbm, vfs_1, k=(7,7), num_agents=40, img_dir="/home/saipraveen/datafiles", plot=True, prefix="Agent_0_10_", plot_stride=3);
+    #pam = ParallelMultiAgent(tf, grbm, vfs_1, agents_per_process=10, num_processes=2, img_dir="/home/saipraveen/datafiles", plot=True,
     #               prefix="Agent_");
 
-    tot_batches = 10;
+    tot_batches = 50;
     for i in range(tot_batches):
         a.reset();
         a.set_prefix("episode_" + format(i).zfill(5) + "_");
         image, mask = a.run_episode( max_steps=200 );
         print("Making videos")
-        make_animation_animgif("/Users/saipraveenb/cseiitm/*episode_" + format(i).zfill(5) + "_*grid_step_",
-                               "/Users/saipraveenb/cseiitm/final_episodes/grid_" + format(i).zfill(5) )
-        make_animation_animgif("/Users/saipraveenb/cseiitm/*episode_" + format(i).zfill(5) + "_*pseudo_step_",
-                               "/Users/saipraveenb/cseiitm/final_episodes/pseudo_" + format(i).zfill(5))
-        make_animation_animgif("/Users/saipraveenb/cseiitm/*episode_" + format(i).zfill(5) + "_*vfunc_step_",
-                               "/Users/saipraveenb/cseiitm/final_episodes/vfunc_" + format(i).zfill(5))
+        make_animation_animgif("/home/saipraveen/datafiles/*episode_" + format(i).zfill(5) + "_*grid_step_",
+                               "/home/saipraveen/datafiles/final_episodes/grid_" + format(i).zfill(5) )
+        make_animation_animgif("/home/saipraveen/datafiles/*episode_" + format(i).zfill(5) + "_*pseudo_step_",
+                               "/home/saipraveen/datafiles/final_episodes/pseudo_" + format(i).zfill(5))
+        make_animation_animgif("/home/saipraveen/datafiles/*episode_" + format(i).zfill(5) + "_*vfunc_step_",
+                               "/home/saipraveen/datafiles/final_episodes/vfunc_" + format(i).zfill(5))
         print("Dumping to file")
-        cPickle.dump( image, open( "/Users/saipraveenb/cseiitm/batch_" + format(i).zfill(5) + "_img.pkl", "w") );
-        cPickle.dump( mask, open("/Users/saipraveenb/cseiitm/batch_" + format(i).zfill(5) + "_mask.pkl", "w") );
+        cPickle.dump( image, open( "/home/saipraveen/datafiles/batch_" + format(i).zfill(5) + "_img.pkl", "w") );
+        cPickle.dump( mask, open("/home/saipraveen/datafiles/batch_" + format(i).zfill(5) + "_mask.pkl", "w") );
 
     pass;
 
@@ -1114,7 +1117,7 @@ if __name__ == "__main__":
     #trX = trX.reshape(old_shape)
     #trX = floatX(trX)
 
-    #tr, _, _, = mnist('/Users/saipraveenb/cseiitm')
+    #tr, _, _, = mnist('/home/saipraveen/datafiles')
     #trX, trY = tr
 
     # Make our own dataset out of fields..
@@ -1139,27 +1142,27 @@ if __name__ == "__main__":
     ldata = np.array( ldata );
     mdata = np.array( mdata );
 
-    color_grid_vis( ldata, show=True );
+    color_grid_vis( ldata, show=False );
 
     ldata = ldata.transpose([0,3,1,2]);
     mdata = mdata.transpose([0,3,1,2]);
 
-    tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
+    tf = ConvVAE(image_save_root="/home/saipraveen/datafiles",
+                 snapshot_file="/home/saipraveen/datafiles/mnist_snapshot_13.pkl")
 
     trX = floatX(ldata)
     trM = floatX(mdata)
     tf.fit(trX, trM);
     recs = tf.transform(trX[:100])
     """
-    tf = ConvVAE(image_save_root="/Users/saipraveenb/cseiitm",
-                 snapshot_file="/Users/saipraveenb/cseiitm/mnist_snapshot_13.pkl")
+    tf = ConvVAE(image_save_root="/home/saipraveen/datafiles",
+                 snapshot_file="/home/saipraveen/datafiles/mnist_snapshot_13.pkl")
 
-    mu = cPickle.load(open("/Users/saipraveenb/cseiitm/mnist_snapshot_13-mu.pkl"));
+    mu = cPickle.load(open("/home/saipraveen/datafiles/mnist_snapshot_13-mu.pkl"));
     #print(mu.shape);
     #print(mu.transpose()[0]);
 
-    grbm = GaussianRBM("/Users/saipraveenb/cseiitm",0.004,0.004,0.004,0.1);
+    grbm = GaussianRBM("/home/saipraveen/datafiles",0.004,0.004,0.004,0.1);
 
 
     grbm.fit(mu);
@@ -1224,11 +1227,11 @@ if __name__ == "__main__":
 
     run_number = 12;
     # Save
-    imsave("/Users/saipraveenb/cseiitm/rbm_resamples_"+format(run_number)+".png", X_s_images);
-    imsave("/Users/saipraveenb/cseiitm/rbm_map_"+format(run_number)+".png", X_m_images);
-    imsave("/Users/saipraveenb/cseiitm/rbm_map_map_"+format(run_number)+".png", X_m_images);
-    imsave("/Users/saipraveenb/cseiitm/actual_"+format(run_number)+".png", X_a_images);
-    imsave("/Users/saipraveenb/cseiitm/vae_manifold_"+format(run_number)+".png", X_manifold_images);
-    imsave("/Users/saipraveenb/cseiitm/jacobian_"+format(run_number)+".png", jacobian_image);
-    imsave("/Users/saipraveenb/cseiitm/jacobian_ao_" + format(run_number) + ".png", jacobian_image_2);
+    imsave("/home/saipraveen/datafiles/rbm_resamples_"+format(run_number)+".png", X_s_images);
+    imsave("/home/saipraveen/datafiles/rbm_map_"+format(run_number)+".png", X_m_images);
+    imsave("/home/saipraveen/datafiles/rbm_map_map_"+format(run_number)+".png", X_m_images);
+    imsave("/home/saipraveen/datafiles/actual_"+format(run_number)+".png", X_a_images);
+    imsave("/home/saipraveen/datafiles/vae_manifold_"+format(run_number)+".png", X_manifold_images);
+    imsave("/home/saipraveen/datafiles/jacobian_"+format(run_number)+".png", jacobian_image);
+    imsave("/home/saipraveen/datafiles/jacobian_ao_" + format(run_number) + ".png", jacobian_image_2);
     """
