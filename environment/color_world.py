@@ -47,7 +47,7 @@ class ColorWorld:
             # Middle yellow.
             paint(grid, rewards, self.h / 2, 4, self.w / 2, 4, (1, 1, 0), 0);
 
-        if rand <= 0.5:
+        else:
             # left blue.
             # grid[0][self.w-1] = (0, 0, 1);
             paint(grid, rewards, 0, 4, self.w - 4, 4, (0, 0, 1), 1);
