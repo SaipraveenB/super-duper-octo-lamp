@@ -6,7 +6,7 @@ import utils.env_utils as env_utils
 import utils.imaging as imaging
 
 
-class SimplePatternWorld:
+class BackWorldEasy:
     def __init__(self, size_x, size_y, k_dims):
         # Init env params
         self.h = size_y
@@ -20,7 +20,7 @@ class SimplePatternWorld:
         self.seen = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w)).astype(bool)
         self.rewards = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w))
         self.valid = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w)).astype(bool)
-        self.valid[self.kh / 2: self.kh / 2 + self.h, self.kw / 2: self.kw / 2: self.w] = True
+        self.valid[self.kh / 2: self.kh / 2 + self.h, self.kw / 2: self.kw / 2 + self.w] = True
 
         # Idle reward
         self.idle_reward = -0.2
@@ -36,20 +36,13 @@ class SimplePatternWorld:
         self.upscale_factor = 40
 
         # Trackers
-        self.cur_pos = (0, 0)
+        self.cur_pos = (0, self.w / 2)
 
         # Init env grid, rewards
         chooser = random.uniform(0, 1)
         # Mismatch
         if chooser < 0.5:
-            chooser = random.uniform(0, 1)
-            # Randomly select between Y-G and G-Y
-            if chooser < 0.5:
-                color_ind_1 = (1, 1, 0)
-                color_ind_2 = (0, 1, 0)
-            else:
-                color_ind_1 = (0, 1, 0)
-                color_ind_2 = (1, 1, 0)
+            color_pattern = (0, 1, 0)
             color_left_goal = (1, 0, 0)
             reward_left_goal = -1.
             color_right_goal = (0, 0, 1)
@@ -57,45 +50,41 @@ class SimplePatternWorld:
 
         # Match
         else:
-            chooser = random.uniform(0, 1)
-            # Randomly select between G-G and Y-Y
-            if chooser < 0.5:
-                color_ind_1 = (1, 1, 0)
-                color_ind_2 = (1, 1, 0)
-            else:
-                color_ind_1 = (0, 1, 0)
-                color_ind_2 = (0, 1, 0)
+            color_pattern = (1, 1, 0)
             color_left_goal = (0, 0, 1)
             reward_left_goal = 1.
             color_right_goal = (1, 0, 0)
             reward_right_goal = -1.
 
-        self.grid[self.kh / 2 + 4 * (self.h / 8):self.kh / 2 + 5 * (self.h / 8),
-        self.kw / 2 + 2 * (self.w / 8):self.kw / 2 + 3 * (self.w / 8)] = color_ind_1
+        self.grid[self.kh / 2 + 2:self.kh / 2 + 2 + (self.h / 8),
+        self.kw / 2 + (self.w / 2) - (self.w / 8):self.kw / 2 + (self.w / 2) + (self.w / 8)] = color_pattern
 
-        self.grid[self.kh / 2 + 4 * (self.h / 8):self.kh / 2 + 5 * (self.h / 8),
-        self.kw / 2 + 5 * (self.w / 8):self.kw / 2 + 6 * (self.w / 8)] = color_ind_2
-
-        self.grid[self.kh / 2 + 7 * (self.h / 8):self.kh / 2 + self.h,
+        self.grid[self.kh / 2 + (self.h - self.h / 8):self.kh / 2 + self.h,
         self.kw / 2:self.kw / 2 + (self.w / 8)] = color_left_goal
 
-        self.grid[self.kh / 2 + 7 * (self.h / 8):self.kh / 2 + self.h,
-        self.kw / 2 + 7 * (self.w / 8):self.kw / 2 + self.w] = color_right_goal
+        self.grid[self.kh / 2 + (self.h - self.h / 8):self.kh / 2 + self.h,
+        self.kw / 2 + (self.w - self.w / 8):self.kw / 2 + self.w] = color_right_goal
 
-        self.rewards[self.kh / 2 + 7 * (self.h / 8):self.kh / 2 + self.h,
+        self.rewards[self.kh / 2 + (self.h - self.h / 8):self.kh / 2 + self.h,
         self.kw / 2:self.kw / 2 + (self.w / 8)] = reward_left_goal
 
-        self.rewards[self.kh / 2 + 7 * (self.h / 8):self.kh / 2 + self.h,
-        self.kw / 2 + 7 * (self.w / 8):self.kw / 2 + self.w] = reward_right_goal
+        self.rewards[self.kh / 2 + (self.h - self.h / 8):self.kh / 2 + self.h,
+        self.kw / 2 + (self.w - self.w / 8):self.kw / 2 + self.w] = reward_right_goal
 
         self.inner_grid = self.grid[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w]
         self.inner_seen = self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w]
 
     def start(self):
-        new_seen = np.logical_and(self.valid[0:self.kh, 0:self.kw], self.kernel)
-        new_vis = np.multiply(new_seen.astype(float).reshape(self.kh, self.kw, 1), self.grid[0:self.kh, 0:self.kw])
-        new_rew = np.multiply(new_seen.astype(float), self.rewards[0:self.kh, 0:self.kw])
-        self.seen[0:self.kh, 0:self.kw] = np.logical_or(self.seen[0:self.kh, 0:self.kw], new_seen)
+        new_seen = np.logical_and(
+            self.valid[self.cur_pos[0]:self.cur_pos[0] + self.kh, self.cur_pos[1]:self.cur_pos[1] + self.kw],
+            self.kernel)
+        new_vis = np.multiply(new_seen.astype(float).reshape(self.kh, self.kw, 1),
+                              self.grid[self.cur_pos[0]:self.cur_pos[0] + self.kh,
+                              self.cur_pos[1]:self.cur_pos[1] + self.kw])
+        new_rew = np.multiply(new_seen.astype(float), self.rewards[self.cur_pos[0]:self.cur_pos[0] + self.kh,
+                                                      self.cur_pos[1]:self.cur_pos[1] + self.kw])
+        self.seen[self.cur_pos[0]:self.cur_pos[0] + self.kh, self.cur_pos[1]:self.cur_pos[1] + self.kw] = np.logical_or(
+            self.seen[self.cur_pos[0]:self.cur_pos[0] + self.kh, self.cur_pos[1]:self.cur_pos[1] + self.kw], new_seen)
         return new_vis, new_rew
 
     def step(self, action):
