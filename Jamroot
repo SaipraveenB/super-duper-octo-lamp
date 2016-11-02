@@ -14,7 +14,8 @@ if ! [ python.configured ]
 # Specify the path to the Boost project.  If you move this project,
 # adjust this path to refer to the Boost root directory.
 use-project boost
-  : /Users/saipraveenb/Downloads/boost_1_61_0 ;
+  : boost_1_62_0
+  ;
 
 # Set up the project-wide requirements that everything uses the
 # boost_python library from the project whose global ID is
@@ -39,7 +40,7 @@ install convenient_copy
 install pycopy
   : planner
   : <install-dependencies>on <install-type>SHARED_LIB <install-type>PYTHON_EXTENSION 
-  : <location>/Users/saipraveenb/PycharmProjects/ProjectX/planning
+  : <location>planning
   ;
 
 # A little "rule" (function) to clean up the syntax of declaring tests

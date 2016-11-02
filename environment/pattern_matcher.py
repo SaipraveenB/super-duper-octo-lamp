@@ -146,4 +146,4 @@ class SimplePatternWorld:
 
     def get_seen_mat(self):
         return np.multiply(
-            self.inner_seen.astype(float).reshape(self.seen.shape + (1,)), self.inner_grid)
+            self.inner_seen.astype(float).reshape(self.inner_seen.shape + (1,)), self.inner_grid)

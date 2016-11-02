@@ -52,13 +52,11 @@ class AlternatorWorld:
 
     # Modify this
     def start(self):
-        seen_pixels = self.valid[0:self.kh, 0:self.kw]
-        new_vis = numpy.multiply(numpy.logical_and(seen_pixels, self.kernel).astype(float).reshape(self.kh, self.kw, 1),
+        seen_pixels = numpy.logical_and(self.valid[0:self.kh, 0:self.kw], self.kernel)
+        new_vis = numpy.multiply(seen_pixels.astype(float).reshape(self.kh, self.kw, 1),
                                  self.grid[0:self.kh, 0:self.kw])
-        new_rew = numpy.multiply(numpy.logical_and(seen_pixels, self.kernel).astype(float),
-                                 self.rewards[0:self.kh, 0:self.kw])
-        self.seen[0:self.kh, 0:self.kw] = numpy.logical_or(self.seen[0:self.kh, 0:self.kw],
-                                                           numpy.logical_and(seen_pixels, self.kernel))
+        new_rew = numpy.multiply(seen_pixels.astype(float), self.rewards[0:self.kh, 0:self.kw])
+        self.seen[0:self.kh, 0:self.kw] = numpy.logical_or(self.seen[0:self.kh, 0:self.kw], seen_pixels)
         return new_vis, new_rew
 
     def step(self, action):
@@ -76,10 +74,10 @@ class AlternatorWorld:
             this_reward = self.rewards[new_pos[0] + self.kh / 2, new_pos[1] + self.kw / 2]
 
         # Update vis matrix
-        seen_pixels = self.valid[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw]
+        seen_pixels = numpy.logical_and(self.valid[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw],
+                                        self.kernel)
         self.seen[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw] = numpy.logical_or(
-            self.seen[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw],
-            numpy.logical_and(seen_pixels, self.kernel))
+            self.seen[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw], seen_pixels)
 
         # Update cur pos
         self.history.append(new_pos)
@@ -91,7 +89,7 @@ class AlternatorWorld:
         seen_pts[self.cur_pos[0], self.cur_pos[1]] = True
         total_seen = numpy.multiply(seen_pts.astype(float).reshape(seen_pts.shape + (1,)), self.inner_grid)
 
-        new_rew = numpy.multiply(numpy.logical_and(seen_pixels, self.kernel).astype(float),
+        new_rew = numpy.multiply(seen_pixels.astype(float),
                                  self.rewards[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw])
 
         # Set reward at the center

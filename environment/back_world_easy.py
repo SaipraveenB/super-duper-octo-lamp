@@ -20,7 +20,7 @@ class BackWorldEasy:
         self.seen = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w)).astype(bool)
         self.rewards = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w))
         self.valid = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w)).astype(bool)
-        self.valid[self.kh / 2: self.kh / 2 + self.h, self.kw / 2: self.kw / 2: self.w] = True
+        self.valid[self.kh / 2: self.kh / 2 + self.h, self.kw / 2: self.kw / 2 + self.w] = True
 
         # Idle reward
         self.idle_reward = -0.2
@@ -75,10 +75,16 @@ class BackWorldEasy:
         self.inner_seen = self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w]
 
     def start(self):
-        new_seen = np.logical_and(self.valid[0:self.kh, 0:self.kw], self.kernel)
-        new_vis = np.multiply(new_seen.astype(float).reshape(self.kh, self.kw, 1), self.grid[0:self.kh, 0:self.kw])
-        new_rew = np.multiply(new_seen.astype(float), self.rewards[0:self.kh, 0:self.kw])
-        self.seen[0:self.kh, 0:self.kw] = np.logical_or(self.seen[0:self.kh, 0:self.kw], new_seen)
+        new_seen = np.logical_and(
+            self.valid[self.cur_pos[0]:self.cur_pos[0] + self.kh, self.cur_pos[1]:self.cur_pos[1] + self.kw],
+            self.kernel)
+        new_vis = np.multiply(new_seen.astype(float).reshape(self.kh, self.kw, 1),
+                              self.grid[self.cur_pos[0]:self.cur_pos[0] + self.kh,
+                              self.cur_pos[1]:self.cur_pos[1] + self.kw])
+        new_rew = np.multiply(new_seen.astype(float), self.rewards[self.cur_pos[0]:self.cur_pos[0] + self.kh,
+                                                      self.cur_pos[1]:self.cur_pos[1] + self.kw])
+        self.seen[self.cur_pos[0]:self.cur_pos[0] + self.kh, self.cur_pos[1]:self.cur_pos[1] + self.kw] = np.logical_or(
+            self.seen[self.cur_pos[0]:self.cur_pos[0] + self.kh, self.cur_pos[1]:self.cur_pos[1] + self.kw], new_seen)
         return new_vis, new_rew
 
     def step(self, action):
@@ -129,4 +135,4 @@ class BackWorldEasy:
 
     def get_seen_mat(self):
         return np.multiply(
-            self.inner_seen.astype(float).reshape(self.seen.shape + (1,)), self.inner_grid)
+            self.inner_seen.astype(float).reshape(self.inner_seen.shape + (1,)), self.inner_grid)
