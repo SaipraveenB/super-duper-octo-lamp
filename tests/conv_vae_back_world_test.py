@@ -9,19 +9,19 @@ from scipy.misc import imsave
 
 if __name__ == "__main__":
     # Program params
-    num_samples = 100
+    num_samples = 400
 
     save_path = "/home/saipraveen/sauce_imgs"
-    snapshot_file = "/home/saipraveen/sauce_imgs/snapshot.pkl"
+    snapshot_file = "/home/saipraveen/sauce_imgs/snapshot_2.pkl"
 
     # Alloc mem for masks, action
     masks = np.zeros((num_samples, 28, 28))
     frames = np.zeros((num_samples, 28, 28, 3))
 
     # Get samples
-    for sample_no in range(1, num_samples):
+    for sample_no in range(0, num_samples):
         world = BackWorldEasy(28, 28, (5, 5))
-        agent = RandomAgent(world)
+        agent = RandomAgent((28,28), world.cur_pos)
         _, _ = world.start()
         action = agent.start(None, None)
         end = False

@@ -3,11 +3,10 @@ import numpy as np
 
 
 class RandomAgent:
-    def __init__(self, env):
-        self.env = env
-        self.h_max = env.inner_grid.shape[0]
-        self.w_max = env.inner_grid.shape[1]
-        self.cur_pos = (0, 0)
+    def __init__(self, env_shape, start_pos):
+        self.h_max = env_shape[0]
+        self.w_max = env_shape[1]
+        self.cur_pos = start_pos
         self.actions = np.asarray([(-1, 0), (1, 0), (0, 1), (0, -1)])
 
     def step(self, vis, rew):

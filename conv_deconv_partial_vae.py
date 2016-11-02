@@ -749,7 +749,7 @@ class ConvVAE(PickleMixin):
         full_jacobian, updates2 = theano.scan(lambda i, full_jacobians : full_jacobians[i][i], sequences=T.arange(code_mu.shape[0]), non_sequences=[full_jacobians])
 
         # Element-wise multiply by the mask to prevent error propagation from unobserved variables.
-        rec_cost = T.sum(T.sqr( (( X - y )/(0.2)) * M )) # / T.cast(X.shape[0], 'float32')
+        rec_cost = T.sum(T.sqr( (( X - y )/(0.1)) * M )) # / T.cast(X.shape[0], 'float32')
 
         prior_cost = log_prior(code_mu, code_log_sigma)
 
