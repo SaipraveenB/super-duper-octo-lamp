@@ -30,7 +30,6 @@ def process_board( spn ):
         return vfunc_t
 
 def process_board_avgr( spn ):
-
     samples = spn[0];
     pseudo = spn[1];
     num_samples = spn[2];
@@ -86,7 +85,9 @@ class VFuncSampler:
         sampleH = self.grbm.h_given_v(np.tile(inpZ,[num_samples,1]))
         sampleV = self.grbm.v_given_h(sampleH)
         muV = self.grbm.map_v_given_h(sampleH);
-        sampleX = self.tf.decode(sampleV)
+
+        # TODO: Check this:
+        sampleX = self.tf.decode(muV)
 
         if plot:
             plt.figure();

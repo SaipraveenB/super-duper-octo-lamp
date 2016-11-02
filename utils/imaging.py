@@ -77,6 +77,7 @@ def colmap_grid(X, show=True, save=False, transform=False):
     if show:
         plt.show()
 
+
     if save:
         plt.savefig(save)
 
