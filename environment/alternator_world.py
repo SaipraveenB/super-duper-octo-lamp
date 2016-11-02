@@ -41,7 +41,7 @@ def get_kernel(dims):
     kernel[dims[0] - 1, 0] = kernel[dims[0] - 1, dims[1] - 1] = kernel[0, dims[1] - 1] = kernel[0, 0] = 0
     return kernel
 
-
+# TODO: Fix rewards.
 def get_random_env(w, h):
     chooser = random.uniform(0, 1)
     grid_world = numpy.zeros((h, w, 3))
@@ -86,7 +86,7 @@ class AlternatorWorld:
         self.grid = numpy.zeros((h + 2 * (self.kh / 2), w + 2 * (self.kw / 2), 3))
         self.grid[self.kh / 2:self.kh / 2 + h, self.kw / 2:self.kw / 2 + w] = self.inner_grid
         self.rewards = numpy.zeros((h + 2 * (self.kh / 2), w + 2 * (self.kw / 2)))
-        self.rewards[self.kh / 2:self.kh / 2 + h, self.kw / 2:self.kw / 2 + w] = numpy.transpose(self.env[1], [1, 0])
+        self.rewards[self.kh / 2:self.kh / 2 + h, self.kw / 2:self.kw / 2 + w] = numpy.transpose(self.env[1], [0, 1])
         self.idle_reward = -0.2
 
         # Seen mask (bigger than grid for easy OR)
@@ -128,7 +128,7 @@ class AlternatorWorld:
         if new_pos[0] == self.cur_pos[0] and new_pos[1] == self.cur_pos[1]:
             this_reward = self.idle_reward
         else:
-            this_reward = self.rewards[new_pos[0], new_pos[1]]
+            this_reward = self.rewards[new_pos[0]+self.kh / 2, new_pos[1]+self.kw / 2]
 
         # Update vis matrix
         seen_pixels = self.valid[new_pos[0]:new_pos[0] + self.kh, new_pos[1]:new_pos[1] + self.kw]

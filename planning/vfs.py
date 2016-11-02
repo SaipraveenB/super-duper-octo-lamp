@@ -48,6 +48,10 @@ def process_board_avgr( spn ):
     r_tot /= num_samples;
     p_tot /= num_samples;
 
+    # TODO: Temporary change..:
+    r_tot += pseudo;
+    pseudo = pseudo * 0;
+
     vfunc = vi.solve_pseudo( r_tot, flatten_p( p_tot ), pseudo );
     vfunc = np.reshape(vfunc, [1, 30, 30])
 

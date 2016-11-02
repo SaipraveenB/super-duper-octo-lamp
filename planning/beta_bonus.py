@@ -4,7 +4,7 @@ from utils.imaging import colmap_grid, heatmap
 
 
 class BetaBonus:
-    def __init__(self, tf, grbm, board_shape, kernel_dims, beta, max_beta, success_reward=10):
+    def __init__(self, tf, grbm, board_shape, kernel_dims, beta, max_beta, success_reward=1):
         self.tf = tf
         self.grbm = grbm
         self.betas = np.ones( (board_shape[1], board_shape[2]) ) * max_beta;
@@ -48,7 +48,7 @@ class BetaBonus:
             self.betas = np.clip( self.betas, -self.max_beta, self.max_beta );
     """
     def step(self, agent_number, step_number, env, reward ):
-        if not reward == 1:
+        if not (reward == -1) and not (reward == +1):
             return;
 
         #cur_pos = env.cur_pos;
@@ -56,16 +56,14 @@ class BetaBonus:
 
         # Policy #1 Increase others if failure, Decrease others if failure.
         gamma = 1;
-
-
         for pos in np.fliplr( [env.history] )[0]:
-            target = gamma * self.success_reward;
+            target = gamma * self.success_reward * reward;
             for vp in (self.inv_kernel + pos):
                 if vp[0] >= self.betas.shape[0] or vp[0] < 0 or vp[1] >= self.betas.shape[1] or vp[1] < 0:
                     continue;
                 self.betas[vp[0]][vp[1]] = (1 - 0.3) * self.betas[vp[0]][vp[1]] + 0.3 * (target)
 
-            gamma *= 0.9;
+            gamma *= 0.98;
 
 
     def dump_bonuses(self, file):

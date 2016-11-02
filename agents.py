@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt;
 from scipy.misc import imsave;
 
 from planning.beta_bonus import BetaBonus
-from utils.imaging import colmap_grid
+from utils.imaging import colmap_grid, vfuncify
 
 
 def color_grid_vis(X, show=True, save=False, transform=False):
@@ -194,12 +194,12 @@ class MultiAgent:
 
             # Only perform VFS once K steps.
             if k % self.persist == 0:
-                vfuncs, pseudo = self.vfs.solve( imageset.transpose([0,3,1,2]), 4, bonus=self.bonus, mask=maskset );
+                vfuncs, pseudo = self.vfs.solve( imageset.transpose([0,3,1,2]), 10, bonus=self.bonus, mask=maskset );
 
                 if self.plot and k % self.plot_stride == 0:
-                    vfuncs_n = normalize(vfuncs[:, :, 1:29, 1:29]);
-                    vfunc_img = bw_grid_vis( vfuncs_n, show=False);
-                    imsave( os.path.join(self.img_dir, self.prefix + "_vfunc_step_" + format(k).zfill(5) + ".png"), vfunc_img );
+                    #vfuncs_n = normalize(vfuncs[:, :, 1:29, 1:29]);
+                    #vfunc_img = bw_grid_vis( vfuncs_n, show=False);
+                    colmap_grid( vfuncify(vfuncs), show=False, save=os.path.join(self.img_dir, self.prefix + "_vfunc_step_" + format(k).zfill(5) + ".png"));
                     colmap_grid( pseudo, show=False, save=os.path.join(self.img_dir, self.prefix + "_pseudo_step_" + format(k).zfill(5) + ".png") );
 
             print ("Advancing samples.");
