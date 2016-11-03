@@ -6,7 +6,7 @@ import utils.env_utils as env_utils
 import utils.imaging as imaging
 
 
-class BackWorldEasy:
+class BackWorldHard:
     def __init__(self, size_x, size_y, k_dims):
         # Init env params
         self.h = size_y

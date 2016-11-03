@@ -2,9 +2,8 @@ import numpy as np;
 
 from utils.imaging import colmap_grid, heatmap
 
-
 class BetaBonus:
-    def __init__(self, tf, grbm, board_shape, kernel_dims, beta, max_beta, success_reward=4):
+    def __init__(self, tf, grbm, board_shape, kernel_dims, beta, max_beta, success_reward=1.5):
         self.tf = tf
         self.grbm = grbm
         self.betas = np.ones( (board_shape[1], board_shape[2]) ) * max_beta;
@@ -64,6 +63,7 @@ class BetaBonus:
             for vp in (self.inv_kernel + pos):
                 if vp[0] >= self.betas.shape[0] or vp[0] < 0 or vp[1] >= self.betas.shape[1] or vp[1] < 0:
                     continue;
+
                 if( modified[vp[0]][vp[1]] == 0 ):
                     targets[vp[0]][vp[1]] = target;
                     modified[vp[0]][vp[1]] = 1;

@@ -151,7 +151,7 @@ def bw_grid_vis(X, show=True, save=False, transform=False):
 # Beta agent.
 class MultiAgent:
 
-    def __init__( self, tf, grbm, vfs, w=28, h=28, k=(7,7), num_agents=10, persist=3, img_dir="/Users/saipraveenb/cseiitm", plot=False, prefix="", plot_stride=30 ):
+    def __init__( self, tf, grbm, vfs, w=28, h=28, k=(7,7), num_agents=10, persist=4, img_dir="/Users/saipraveenb/cseiitm", plot=False, prefix="", plot_stride=30 ):
         self.tf = tf;
         self.grbm = grbm;
         self.num_agents = num_agents;

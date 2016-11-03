@@ -5,6 +5,7 @@ Convolutional VAE in a single file.
 Bringing in code from IndicoDataSolutions and Alec Radford (NewMu)
 Additionally converted to use default conv2d interface instead of explicit cuDNN
 """
+import sys
 import theano
 import theano.tensor as T
 from theano.compat.python2x import OrderedDict
@@ -1095,15 +1096,22 @@ def do_value_iteration():
     #planning.planner.value_iterate( )
 
 def run_agent():
-
+    
     tf = ConvVAE(image_save_root="/home/saipraveen/datafiles",
                  snapshot_file="/home/saipraveen/datafiles/mnist_snapshot_13.pkl")
 
     mu = cPickle.load(open("/home/saipraveen/datafiles/mnist_snapshot_13-mu.pkl"));
     # print(mu.shape);
     # print(mu.transpose()[0]);
-
-    grbm = GaussianRBM("/home/saipraveen/datafiles", 0.004, 0.004, 0.04, 0.2);
+    num = '0';
+    if len(sys.argv) > 1:
+        num = sys.argv[1]
+    else:
+        num = '0'
+    
+    outputfiles = "/home/saipraveen/outputfiles_" + num
+    os.mkdir( outputfiles )
+    grbm = GaussianRBM(outputfiles, 0.4, 0.4, 0.4, 0.7);
 
     grbm.fit(mu);
 
@@ -1114,13 +1122,13 @@ def run_agent():
     start_img = np.zeros((28, 28, 3));
     start_img = np.reshape(np.transpose(start_img, [2, 0, 1]), [1, 3, 28, 28]);
 
-    vfs_1 = VFuncSampler(tf, grbm, threads=40);
+    vfs_1 = VFuncSampler(tf, grbm, threads=9);
     #vfs_0 = VFuncSampler(tf, grbm, threads=4);
 
     env = AlternatorWorld(28,28,(4,4));
 
     # Run X agents at once. Helps optimize tensorflow operations.
-    a = MultiAgent( tf, grbm, vfs_1, k=(7,7), num_agents=40, img_dir="/home/saipraveen/datafiles", plot=True, prefix="Agent_0_10_", plot_stride=3);
+    a = MultiAgent( tf, grbm, vfs_1, k=(7,7), num_agents=9, img_dir=outputfiles, plot=True, prefix="Agent_0_10_", plot_stride=3);
     #pam = ParallelMultiAgent(tf, grbm, vfs_1, agents_per_process=10, num_processes=2, img_dir="/home/saipraveen/datafiles", plot=True,
     #               prefix="Agent_");
 
@@ -1130,15 +1138,16 @@ def run_agent():
         a.set_prefix("episode_" + format(i).zfill(5) + "_");
         image, mask = a.run_episode( max_steps=200 );
         print("Making videos")
-        make_animation_animgif("/home/saipraveen/datafiles/*episode_" + format(i).zfill(5) + "_*grid_step_",
-                               "/home/saipraveen/datafiles/final_episodes/grid_" + format(i).zfill(5) )
-        make_animation_animgif("/home/saipraveen/datafiles/*episode_" + format(i).zfill(5) + "_*pseudo_step_",
-                               "/home/saipraveen/datafiles/final_episodes/pseudo_" + format(i).zfill(5))
-        make_animation_animgif("/home/saipraveen/datafiles/*episode_" + format(i).zfill(5) + "_*vfunc_step_",
-                               "/home/saipraveen/datafiles/final_episodes/vfunc_" + format(i).zfill(5))
+        make_animation_animgif(outputfiles + "/*episode_" + format(i).zfill(5) + "_*grid_step_",
+                               outputfiles + "/final_episodes/grid_" + format(i).zfill(5) )
+        make_animation_animgif(outputfiles + "/*episode_" + format(i).zfill(5) + "_*pseudo_step_",
+                               outputfiles + "/final_episodes/pseudo_" + format(i).zfill(5))
+        make_animation_animgif(outputfiles + "/*episode_" + format(i).zfill(5) + "_*vfunc_step_",
+                               outputfiles + "/final_episodes/vfunc_" + format(i).zfill(5))
+
         print("Dumping to file")
-        cPickle.dump( image, open( "/home/saipraveen/datafiles/batch_" + format(i).zfill(5) + "_img.pkl", "w") );
-        cPickle.dump( mask, open("/home/saipraveen/datafiles/batch_" + format(i).zfill(5) + "_mask.pkl", "w") );
+        cPickle.dump( image, open( outputfiles + "/batch_" + format(i).zfill(5) + "_img.pkl", "w") );
+        cPickle.dump( mask, open( outputfiles + "/batch_" + format(i).zfill(5) + "_mask.pkl", "w") );
 
     pass;
 
@@ -1166,9 +1175,9 @@ if __name__ == "__main__":
     # ldata = np.array((100,1,28,28));
     # Put 100 units.
 
-    do_value_iteration();
+    #do_value_iteration();
     #plot_grbm();
-    #run_agent();
+    run_agent();
     exit();
 
     ldata = [];
