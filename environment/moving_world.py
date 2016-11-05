@@ -20,7 +20,7 @@ class MovingWorld:
         self.seen = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w)).astype(bool)
         self.rewards = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w))
         self.valid = np.zeros((2 * (self.kh / 2) + self.h, 2 * (self.kw / 2) + self.w)).astype(bool)
-        self.valid[self.kh / 2: self.kh / 2 + self.h, self.kw / 2: self.kw / 2: self.w] = True
+        self.valid[self.kh / 2: self.kh / 2 + self.h, self.kw / 2: self.kw / 2 + self.w] = True
 
         # Idle reward
         self.idle_reward = -0.2
@@ -114,7 +114,7 @@ class MovingWorld:
         # Set reward at the center
         new_rew[self.kh / 2, self.kw / 2] = this_reward
 
-        return (this_reward == -1 or this_reward == +1), seen_pts, total_seen, new_rew
+        return (this_reward == -1 or this_reward == +1), seen_pts, total_seen, new_rew, this_reward
 
     # Dump to image with pixel upscale
     def dump_seen(self, path):

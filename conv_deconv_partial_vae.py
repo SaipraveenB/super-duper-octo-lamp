@@ -27,7 +27,7 @@ import os
 from sklearn.base import BaseEstimator, TransformerMixin
 from scipy.linalg import svd
 from skimage.transform import resize
-
+from mpl_toolkits.mplot3d import Axes3D
 import planning.planner;
 import planning.iterator;
 from agents import Agent, MultiAgent, ParallelMultiAgent
@@ -39,114 +39,7 @@ from planning.beta_bonus import BetaBonus
 from planning.vfs import VFuncSampler
 
 from utils.imaging import normalize_vfunc,heatmap, vfuncify
-
-
-def softmax(x):
-    return T.nnet.softmax(x)
-
-
-def rectify(x):
-    return (x + abs(x)) / 2.0
-
-
-def tanh(x):
-    return T.tanh(x)
-
-
-def sigmoid(x):
-    return T.nnet.sigmoid(x)
-
-
-def linear(x):
-    return x
-
-
-def t_rectify(x):
-    return x * (x > 1)
-
-
-def t_linear(x):
-    return x * (abs(x) > 1)
-
-
-def maxout(x):
-    return T.maximum(x[:, 0::2], x[:, 1::2])
-
-
-def clipped_maxout(x):
-    return T.clip(T.maximum(x[:, 0::2], x[:, 1::2]), -1., 1.)
-
-
-def clipped_rectify(x):
-    return T.clip((x + abs(x)) / 2.0, 0., 1.)
-
-
-def hard_tanh(x):
-    return T.clip(x, -1., 1.)
-
-
-def steeper_sigmoid(x):
-    return 1./(1. + T.exp(-3.75 * x))
-
-
-def hard_sigmoid(x):
-    return T.clip(x + 0.5, 0., 1.)
-
-
-def shuffle(*data):
-    idxs = np.random.permutation(np.arange(len(data[0])))
-    if len(data) == 1:
-        return [data[0][idx] for idx in idxs]
-    else:
-        return [[d[idx] for idx in idxs] for d in data]
-
-
-def shared0s(shape, dtype=theano.config.floatX, name=None):
-    return sharedX(np.zeros(shape), dtype=dtype, name=name)
-
-
-def iter_data(*data, **kwargs):
-    size = kwargs.get('size', 128)
-    batches = len(data[0]) / size
-    if len(data[0]) % size != 0:
-        batches += 1
-    for b in range(batches):
-        start = b * size
-        end = (b + 1) * size
-        if len(data) == 1:
-            yield data[0][start:end]
-        else:
-            yield tuple([d[start:end] for d in data])
-
-
-def intX(X):
-    return np.asarray(X, dtype=np.int32)
-
-
-def floatX(X):
-    return np.asarray(X, dtype=theano.config.floatX)
-
-
-def sharedX(X, dtype=theano.config.floatX, name=None):
-    return theano.shared(np.asarray(X, dtype=dtype), name=name)
-
-
-def uniform(shape, scale=0.05):
-    return sharedX(np.random.uniform(low=-scale, high=scale, size=shape))
-
-
-def normal(shape, scale=0.05):
-    return sharedX(np.random.randn(*shape) * scale)
-
-
-def orthogonal(shape, scale=1.1):
-    """ benanne lasagne ortho init (faster than qr approach)"""
-    flat_shape = (shape[0], np.prod(shape[1:]))
-    a = np.random.normal(0.0, 1.0, flat_shape)
-    u, _, v = np.linalg.svd(a, full_matrices=False)
-    q = u if u.shape == flat_shape else v  # pick the one with the correct shape
-    q = q.reshape(shape)
-    return sharedX(scale * q[:shape[0], :shape[1]])
+from utils.theanoutils import *
 
 
 def color_grid_vis(X, show=False, save=False, transform=False):
@@ -487,11 +380,11 @@ def make_animation_animgif(filebasename, animfilename):
     os.waitpid(proc.pid, 0)
 
 class GaussianRBM:
-    def __init__(self, vis_target, lr_a, lr_b, lr_w, sigma ):
+    def __init__(self, vis_target, lr_a, lr_b, lr_w, sigma, n_hidden=12, n_batch=128, ax3d=False ):
         self.srng = RandomStreams( seed= int(time()) )
         #self.n_code = 512
-        self.n_hidden = 1
-        self.n_batch = 128
+        self.n_hidden = n_hidden
+        self.n_batch = n_batch
         self.costs_ = []
         self.epoch_ = 0
 
@@ -510,13 +403,15 @@ class GaussianRBM:
         lw = (trX.shape[1],self.n_hidden);
         if not hasattr(self, "params"):
             print('generating weights')
-            w = uniform(lw, 2);
+            w = uniform(lw, 1);
             # Keep this low as it acts as a prior and a large initial value could take forever to sway.
-            b = uniform(lhid, 0.1);
-            a = uniform(lvis, 2);
+            b = uniform(lhid, 0.01);
+            a = uniform(lvis, 1);
+            #q = floatX([0.9]*lvis);
             self.a = a;
             self.b = b;
             self.w = w;
+            #self.q = q;
             self.params = [w,a,b];
 
 
@@ -540,7 +435,8 @@ class GaussianRBM:
         # More robust learning measures.
         VH_data = V.dimshuffle([0,1,'x']) * P_H_V_data.dimshuffle([0,'x',1]);
         VH_model = V2.dimshuffle([0,1,'x']) * P_H_V_model.dimshuffle([0,'x',1]);
-
+	#sparsity_cost = 0.9
+        #q = 0.9 * q + 0.1 * T.mean()
         w_update = w + self.lr_w * T.sum( (VH_data - VH_model)/(self.sigma * self.sigma), axis=0 ) / V.shape[0];
         a_update = a + self.lr_a * T.sum( (V - V2)/(self.sigma * self.sigma), axis=0 ) / V.shape[0];
         b_update = b + self.lr_b * T.sum( P_H_V_data - P_H_V_model, axis=0 ) / V.shape[0];
@@ -621,7 +517,7 @@ class GaussianRBM:
 
 
 
-    def fit(self, trX, plot=False, video=False):
+    def fit(self, trX, plot=False, video=False, ax3d=False):
         if not hasattr(self, "_fit_function"):
             self._setup_functions(trX);
 
@@ -632,7 +528,7 @@ class GaussianRBM:
         iter_num = 0;
         for e in range(epochs):
             cost = 0;
-            for xmb in iter_data( trX, size=10 ):
+            for xmb in iter_data( trX, size=self.n_batch ):
                 iter_num += 1;
                 #print ("G-RBM: In batch: " + format(iter_num) + " of " );
                 xmb = floatX(xmb)
@@ -645,18 +541,25 @@ class GaussianRBM:
                     mu_samples = self.v_given_h(C);
                     mu_map = self.map_v_given_h(C);
                     mu_map_map = self.map_v_given_h(C_map);
-
-                    plt.figure();
-                    plt.scatter(trX.transpose()[0], trX.transpose()[1], alpha=0.1, s=15, c='b');
-                    plt.scatter(mu_samples.transpose()[0], mu_samples.transpose()[1], alpha=0.1, s=15, c='g');
-                    plt.scatter(mu_map.transpose()[0], mu_map.transpose()[1], alpha=0.1, s=15, c='r');
+                    if not ax3d:
+                        plt.figure();
+                        plt.scatter(trX.transpose()[0], trX.transpose()[1], alpha=0.1, s=15, c='b');
+                        plt.scatter(mu_samples.transpose()[0], mu_samples.transpose()[1], alpha=0.1, s=15, c='k');
+                        plt.scatter(mu_map.transpose()[0], mu_map.transpose()[1], alpha=0.1, s=15, c='r');
+                    else:
+                        fig = plt.figure();
+                        ax = fig.add_subplot(111, projection='3d')
+                        ax.scatter(trX.transpose()[0], trX.transpose()[1], trX.transpose()[2], alpha=0.1, s=15, c='b');
+                        ax.scatter(mu_samples.transpose()[0], mu_samples.transpose()[1], mu_samples.transpose()[2], alpha=0.1, s=15, c='k');
+                        ax.scatter(mu_map.transpose()[0], mu_map.transpose()[1], mu_map.transpose()[2], alpha=0.1, s=15, c='r');
+                        
                     #plt.show();
 
                     plt.savefig(os.path.join(self.vis_target, "grbm_vis_" + (5-len(str(iter_num))) * "0" + str(iter_num) + ".png") );
 
-                cost = self._fit_function(xmb);
+                #cost = self._fit_function(xmb);
                 #Uncomment for the debug version.
-                #cost, a, b, c, d, e, f, g = self._fit_function_dbg(xmb);
+                cost, a, b, c, d, e, f, g = self._fit_function_dbg(xmb);
 
                 self.costs_.append(cost);
                 n += xmb.shape[0]
@@ -673,9 +576,9 @@ class GaussianRBM:
             make_animation_animgif(os.path.join(self.vis_target,"grbm_vis_"),os.path.join(self.vis_target,"grbm_vis"));
 
 class ConvVAE(PickleMixin):
-    def __init__(self, image_save_root=None, snapshot_file="snapshot.pkl", force_recompile=False, rc_streams=3):
+    def __init__(self, image_save_root=None, snapshot_file="snapshot.pkl", force_recompile=False, rc_streams=3, n_code=2):
         self.srng = RandomStreams( seed= int(time()) )
-        self.n_code = 2
+        self.n_code = n_code
         self.n_hidden = 64
         self.n_batch = 128
         self.costs_ = []
@@ -1111,7 +1014,8 @@ def run_agent():
     
     outputfiles = "/home/saipraveen/outputfiles_" + num
     os.mkdir( outputfiles )
-    grbm = GaussianRBM(outputfiles, 0.4, 0.4, 0.4, 0.7);
+    os.mkdir( outputfiles + "/final_episodes" )
+    grbm = GaussianRBM(outputfiles, 0.4, 0.4, 0.4, 0.7, n_hidden=1);
 
     grbm.fit(mu);
 
@@ -1128,12 +1032,15 @@ def run_agent():
     env = AlternatorWorld(28,28,(4,4));
 
     # Run X agents at once. Helps optimize tensorflow operations.
-    a = MultiAgent( tf, grbm, vfs_1, k=(7,7), num_agents=9, img_dir=outputfiles, plot=True, prefix="Agent_0_10_", plot_stride=3);
+    a = MultiAgent( tf, grbm, vfs_1, k=(3,3), num_agents=9, img_dir=outputfiles, plot=True, prefix="Agent_0_10_", plot_stride=4);
     #pam = ParallelMultiAgent(tf, grbm, vfs_1, agents_per_process=10, num_processes=2, img_dir="/home/saipraveen/datafiles", plot=True,
     #               prefix="Agent_");
 
     tot_batches = 50;
+    path_lengths = [];
+    all_rewards = [];
     for i in range(tot_batches):
+        
         a.reset();
         a.set_prefix("episode_" + format(i).zfill(5) + "_");
         image, mask = a.run_episode( max_steps=200 );
@@ -1144,8 +1051,12 @@ def run_agent():
                                outputfiles + "/final_episodes/pseudo_" + format(i).zfill(5))
         make_animation_animgif(outputfiles + "/*episode_" + format(i).zfill(5) + "_*vfunc_step_",
                                outputfiles + "/final_episodes/vfunc_" + format(i).zfill(5))
-
+        path_lengths.append(a.get_path_lengths());
+        all_rewards.append(a.get_rewards());
+        
         print("Dumping to file")
+        cPickle.dump( path_lengths, open( outputfiles + "/batch_" + format(i).zfill(5) + "_length.pkl", "w") );
+        cPickle.dump( all_rewards, open( outputfiles + "/batch_" + format(i).zfill(5) + "_rew.pkl", "w") );
         cPickle.dump( image, open( outputfiles + "/batch_" + format(i).zfill(5) + "_img.pkl", "w") );
         cPickle.dump( mask, open( outputfiles + "/batch_" + format(i).zfill(5) + "_mask.pkl", "w") );
 

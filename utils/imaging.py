@@ -100,6 +100,5 @@ def dump_upscaled_image(mat, upscale_factor, path):
     for i in range(img_dims[0]):
         for j in range(img_dims[1]):
             new_images[i * img_dims[1] + j] = np.zeros((upscale_factor, upscale_factor, 3)) + mat[i, j]
-
     new_img = color_grid_vis(new_images, show=False, save=False)
     imsave(path, new_img)

@@ -186,7 +186,7 @@ class VFuncSampler:
         inpZ = self.tf.encode(image)[0];
 
         if bonus is not None:
-            pseudo_rewards = bonus.compute( image, mask );
+            pseudo_rewards = bonus.compute( image, mask, inpZ=inpZ);
         else:
             # NxWxH
             pseudo_rewards = np.zeros( ( image.shape[0], image.shape[2],image.shape[3] ) );

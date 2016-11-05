@@ -40,7 +40,7 @@ class ColorWorld:
 
             # left red.
             # grid[0][self.w-1] = (0, 0, 1);
-            paint(grid, rewards, 0, 4, self.w - 4, 4, (1, 0, 0), -1);
+            paint(grid, rewards, 0, 4, self.w - 4, 4, (1, 0, 0), -4);
             # right blue.
             # grid[self.h - 1][0] = (1, 0, 0);
             paint(grid, rewards, self.h - 4, 4, 0, 4, (0, 0, 1), 1);
@@ -53,7 +53,7 @@ class ColorWorld:
             paint(grid, rewards, 0, 4, self.w - 4, 4, (0, 0, 1), 1);
             # right red.
             # grid[self.h - 1][0] = (1, 0, 0);
-            paint(grid, rewards, self.h - 4, 4, 0, 4, (1, 0, 0), -1);
+            paint(grid, rewards, self.h - 4, 4, 0, 4, (1, 0, 0), -4);
             # Middle green.
             paint(grid, rewards, self.h / 2, 4, self.w / 2, 4, (0, 1, 0), 0);
 

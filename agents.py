@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt;
 from scipy.misc import imsave;
 
 from planning.beta_bonus import BetaBonus
+from planning.alpha_beta_bonus import AlphaBetaBonus
 from utils.imaging import colmap_grid, vfuncify
 
 
@@ -82,7 +83,7 @@ class Agent:
             has_ended, mask, image, rewards = self.env.step(action);
             self.env.dump_seen(os.path.join(self.img_dir, self.img_base + "0" * (5 - len(str(k))) + str(k) + ".png"))
 
-            print("Now at:", self.env.cur_pos);
+            #print("Now at:", self.env.cur_pos);
 
             if has_ended:
                 break;
@@ -166,12 +167,13 @@ class MultiAgent:
         self.persist = persist;
         self.plot_stride = plot_stride;
         self.envs = [];
-
+	
         # Move this as an argument.
-        self.bonus = BetaBonus( tf=tf, grbm=grbm, beta=0.5, max_beta=4, board_shape=(num_agents,w,h), kernel_dims=(5,5)) ;
+        self.bonus = AlphaBetaBonus( tf=tf, grbm=grbm, beta=0.5, max_beta=3, board_shape=(num_agents,w,h), kernel_dims=(5,5)) ;
         for i in range(0,num_agents):
             self.envs.append( AlternatorWorld(w,h,k) );
-
+        self.rewards = [0] * num_agents;
+        self.path_length = [0] * num_agents;
         self.num_episodes = 0;
         pass;
     def set_prefix(self, prefix):
@@ -202,7 +204,7 @@ class MultiAgent:
                     colmap_grid( vfuncify(vfuncs), show=False, save=os.path.join(self.img_dir, self.prefix + "_vfunc_step_" + format(k).zfill(5) + ".png"));
                     colmap_grid( pseudo, show=False, save=os.path.join(self.img_dir, self.prefix + "_pseudo_step_" + format(k).zfill(5) + ".png") );
 
-            print ("Advancing samples.");
+            #print ("Advancing samples.");
             for t in range(0,self.num_agents):
                 #print ("Advancing samples.")
                 if has_ended[t]:
@@ -216,7 +218,7 @@ class MultiAgent:
                 if np.random.rand() < 0.2:
                     action = np.random.randint(0,4);
 
-                print action;
+                #print action;
                 ended, mask, image, rewards, reward = self.envs[t].step( action );
 
                 # Update the t-th plane in the Bonus board.
@@ -225,9 +227,12 @@ class MultiAgent:
                 imageset[t] = image;
                 has_ended[t] = ended;
                 maskset[t] = mask;
+                self.path_lengths[t] += 1;
+                self.rewards[t] += reward;
 
             print "At: ", [env.cur_pos for env in self.envs];
-
+            print self.path_lengths;
+            print self.rewards
             if self.plot and k % self.plot_stride == 0:
                 fset = imageset + 0.2 * maskset.reshape(maskset.shape + (1,))
                 for i in range(0,len(self.envs)):
@@ -249,6 +254,11 @@ class MultiAgent:
         self.envs = [];
         for i in range(0,self.num_agents):
             self.envs.append( AlternatorWorld(self.boarddims[0],self.boarddims[1],self.kernel) );
-
+        self.rewards = [0] * self.num_agents;
+        self.path_lengths = [0] * self.num_agents;
         pass
 
+    def get_path_lengths(self):
+        return self.path_lengths;
+    def get_rewards(self):
+        return self.rewards;

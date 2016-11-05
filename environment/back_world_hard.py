@@ -119,7 +119,7 @@ class BackWorldHard:
         # Set reward at the center
         new_rew[self.kh / 2, self.kw / 2] = this_reward
 
-        return (this_reward == -1 or this_reward == +1), seen_pts, total_seen, new_rew
+        return (this_reward == -1 or this_reward == +1), seen_pts, total_seen, new_rew, this_reward
 
     # Dump to image with pixel upscale
     def dump_seen(self, path):

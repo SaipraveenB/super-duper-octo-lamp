@@ -61,7 +61,7 @@ std::vector< std::vector<std::vector<double>> > _Iterate_pR( std::vector<std::ve
         }
 
         // Put it into the output matrix.
-        V_next[ty][tx][startp] = (R[ty - 1][tx - 1] - 0.1) + GAMMA * max;
+        V_next[ty][tx][startp] = (R[ty - 1][tx - 1]) + GAMMA * max;
         int u = 0;
 
       }

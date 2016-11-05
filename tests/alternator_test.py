@@ -1,7 +1,25 @@
 # Test env print & function
 import environment.alternator_world as ev
+from utils.imaging import dump_upscaled_image
 
 a = ev.AlternatorWorld(28, 28, (3, 3))
+a.inner_grid[a.cur_pos[0],a.cur_pos[1]] = (1,1,1)
+dump_upscaled_image(a.inner_grid, 40, "/home/saipraveen/sauce_imgs/alternator_world/world_1.png")
+a = ev.AlternatorWorld(28, 28, (3, 3))
+a.inner_grid[a.cur_pos[0],a.cur_pos[1]] = (1,1,1)
+dump_upscaled_image(a.inner_grid, 40, "/home/saipraveen/sauce_imgs/alternator_world/world_2.png")
+a = ev.AlternatorWorld(28, 28, (3, 3))
+a.inner_grid[a.cur_pos[0],a.cur_pos[1]] = (1,1,1)
+dump_upscaled_image(a.inner_grid, 40, "/home/saipraveen/sauce_imgs/alternator_world/world_3.png")
+a = ev.AlternatorWorld(28, 28, (3, 3))
+a.inner_grid[a.cur_pos[0],a.cur_pos[1]] = (1,1,1)
+dump_upscaled_image(a.inner_grid, 40, "/home/saipraveen/sauce_imgs/alternator_world/world_4.png")
+a = ev.AlternatorWorld(28, 28, (3, 3))
+a.inner_grid[a.cur_pos[0],a.cur_pos[1]] = (1,1,1)
+dump_upscaled_image(a.inner_grid, 40, "/home/saipraveen/sauce_imgs/alternator_world/world_5.png")
+a = ev.AlternatorWorld(28, 28, (3, 3))
+a.inner_grid[a.cur_pos[0],a.cur_pos[1]] = (1,1,1)
+dump_upscaled_image(a.inner_grid, 40, "/home/saipraveen/sauce_imgs/alternator_world/world_6.png")
 
 b, c = a.start()
 
@@ -56,4 +74,4 @@ d = a.step(1)
 
 m = a.get_seen_mask()
 
-a.dump_seen("/home/sauce/img.png")
+#a.dump_seen("/home/sauce/img.png")

@@ -3,6 +3,7 @@ import numpy as np
 from planning.random_agent import RandomAgent
 from environment.back_world_easy import BackWorldEasy
 import theano
+import cPickle
 import os
 from utils.imaging import color_grid_vis
 from scipy.misc import imsave
@@ -11,9 +12,10 @@ if __name__ == "__main__":
     # Program params
     num_samples = 400
 
-    save_path = "/home/saipraveen/sauce_imgs"
-    snapshot_file = "/home/saipraveen/sauce_imgs/snapshot_2.pkl"
-
+    save_path = "/home/saipraveen/sauce_imgs/back_world_easy"
+    snapshot_file = os.path.join(save_path,"snapshot.pkl")
+    src_data_file = os.path.join(save_path,"src_data.pkl")
+    
     # Alloc mem for masks, action
     masks = np.zeros((num_samples, 28, 28))
     frames = np.zeros((num_samples, 28, 28, 3))
@@ -26,11 +28,14 @@ if __name__ == "__main__":
         action = agent.start(None, None)
         end = False
         while not end:
-            end, _, _, _ = world.step(action)
+            end, _, _, _,_ = world.step(action)
             action = agent.step(None, None)
 
         masks[sample_no] = world.get_seen_mask()
         frames[sample_no] = world.get_seen_mat()
+
+    # Dump source data
+    cPickle.dump(frames,open(src_data_file,"wb"))
 
     comb_img = color_grid_vis(frames, show=False, save=False)
     imsave(os.path.join(save_path, "train.png"), comb_img)

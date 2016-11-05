@@ -9,7 +9,7 @@ class MDPDeducer:
     def deduce_r(self, pixels):
         is_r = np.exp( -np.sum( (pixels - (1,0,0)) * (pixels-(1,0,0)), axis=2 )/0.1 );
         is_b = np.exp( -np.sum( (pixels - (0,0,1)) * (pixels-(0,0,1)), axis=2 )/0.1 );
-        return is_r * (-1) + is_b * (+1);
+        return is_r * (-4) + is_b * (+1);
 
     def deduce_p(self, pixels):
         kernel = [[(0,1,0),(0,0,0),(0,0,0)], [(0,0,0),(1,0,0),(0,0,0)], [(0,0,0),(0,0,1),(0,0,0)], [(0,0,0),(0,0,0),(0,1,0)]];

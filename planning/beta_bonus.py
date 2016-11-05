@@ -3,10 +3,11 @@ import numpy as np;
 from utils.imaging import colmap_grid, heatmap
 
 class BetaBonus:
-    def __init__(self, tf, grbm, board_shape, kernel_dims, beta, max_beta, success_reward=1.5):
+    def __init__(self, tf, grbm, board_shape, kernel_dims, beta, max_beta=3, success_reward=2):
         self.tf = tf
         self.grbm = grbm
         self.betas = np.ones( (board_shape[1], board_shape[2]) ) * max_beta;
+        self.betas[(0, board_shape[1]-1, board_shape[1]-1,0),(board_shape[2]-1, 0, board_shape[2]-1,0)] = 0
         self.beta = beta;
         self.max_beta = max_beta;
         self.success_reward = success_reward;
@@ -53,7 +54,6 @@ class BetaBonus:
         #cur_pos = env.cur_pos;
         revealed = env.get_seen_mask();
 
-        # Policy #1 Increase others if failure, Decrease others if failure.
         targets = np.zeros(self.betas.shape);
         modified = np.zeros(self.betas.shape);
 
@@ -68,7 +68,7 @@ class BetaBonus:
                     targets[vp[0]][vp[1]] = target;
                     modified[vp[0]][vp[1]] = 1;
 
-            gamma *= 0.98;
+            gamma *= 0.95;
         
         #self.betas = (1 - 0.3 * modified) * self.betas + 0.3 * (targets) * modified
 	self.betas = ( self.betas * self.times_seen + 1 * targets * modified ) / (self.times_seen + modified );

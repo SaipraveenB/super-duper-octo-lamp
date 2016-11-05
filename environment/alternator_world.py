@@ -35,7 +35,7 @@ class AlternatorWorld:
         self.grid[self.kh / 2:self.kh / 2 + h, self.kw / 2:self.kw / 2 + w] = self.inner_grid
         self.rewards = numpy.zeros((h + 2 * (self.kh / 2), w + 2 * (self.kw / 2)))
         self.rewards[self.kh / 2:self.kh / 2 + h, self.kw / 2:self.kw / 2 + w] = numpy.transpose(self.env[1], [0, 1])
-        self.idle_reward = -0.2
+        self.idle_reward = -0.04
 
         # Seen mask (bigger than grid for easy OR)
         self.seen = numpy.zeros((h + 2 * (self.kh / 2), w + 2 * (self.kw / 2))).astype(bool)
@@ -103,7 +103,7 @@ class AlternatorWorld:
     def get_seen_mat(self):
         return numpy.multiply(
             self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w].astype(float).reshape(
-                self.seen.shape + (1,)), self.grid[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w])
+                (self.h,self.w,1)), self.grid[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w])
 
     def get_seen_mask(self):
         return self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w]
