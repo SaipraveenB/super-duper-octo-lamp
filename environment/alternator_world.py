@@ -39,6 +39,7 @@ class AlternatorWorld:
 
         # Seen mask (bigger than grid for easy OR)
         self.seen = numpy.zeros((h + 2 * (self.kh / 2), w + 2 * (self.kw / 2))).astype(bool)
+        self.inner_seen = self.seen[self.kh / 2:self.kh / 2 + self.h, self.kw / 2:self.kw / 2 + self.w]
         self.valid = numpy.zeros((h + 2 * (self.kh / 2), w + 2 * (self.kw / 2))).astype(bool)
         self.valid[self.kh / 2:h + self.kh / 2, self.kw / 2:w + self.kw / 2] = True
 
@@ -60,7 +61,9 @@ class AlternatorWorld:
                                  self.grid[0:self.kh, 0:self.kw])
         new_rew = numpy.multiply(seen_pixels.astype(float), self.rewards[0:self.kh, 0:self.kw])
         self.seen[0:self.kh, 0:self.kw] = numpy.logical_or(self.seen[0:self.kh, 0:self.kw], seen_pixels)
-        return new_vis, new_rew
+        total_seen = numpy.multiply(self.inner_seen.astype(float).reshape(self.inner_seen.shape + (1,)),
+                                    self.inner_grid)
+        return new_vis, new_rew, total_seen
 
     def step(self, action):
         # Obtain action
